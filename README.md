@@ -35,8 +35,8 @@
     
 2. 安装 `PhantomJS`，前往 https://phantomjs.org/download.html 下载对应平台支持
 
-> [!WARNING]
-> 未配置 `PhantomJS` 支持的Bot，在使用 `ginfo` 指令时会被强制关闭 Bot 进程
+    > [!WARNING]
+    > 未配置 `PhantomJS` 支持的Bot，在使用 `ginfo` 指令时会被强制关闭 Bot 进程
 
 ## 配置
    
@@ -52,18 +52,7 @@
    MAIMAIDXPATH=/root/static
    ```
 
-3. 在 `.env` 文件中配置本地文件服务器 `FILESERVER`，必须是 **公网IP** 用于官方访问文件
-
-   ``` dotenv
-   FILESERVER=http://ip:port/maimai
-
-   # 例如，节点必须为 `maimai`
-   FILESERVER=http://10.0.0.1:2333/maimai
-   # 例如
-   FILESERVER=https://domain.name.top/maimai
-   ```
-
-4. 可选，如果拥有 `diving-fish 查分器` 的开发者 `Token`，在 `.env` 文件夹中配置 `MAIMAIDXTOKEN`
+3. 可选，如果拥有 `diving-fish 查分器` 的开发者 `Token`，在 `.env` 文件夹中配置 `MAIMAIDXTOKEN`
    
    ``` dotenv
    MAIMAIDXTOKEN=MAIMAITOKEN

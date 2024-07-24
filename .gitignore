@@ -161,3 +161,4 @@ cython_debug/
 
 
 nonebot_plugin_qq_maimaidx/temp
+.env

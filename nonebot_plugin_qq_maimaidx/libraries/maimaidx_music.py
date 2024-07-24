@@ -1,52 +1,17 @@
 import asyncio
-import json
 import random
 import traceback
-from collections import namedtuple
+from collections import Counter
 from copy import deepcopy
-from io import BytesIO
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Tuple, overload
 
-import aiofiles
-import httpx
-from pydantic import BaseModel, Field
+from loguru import logger as log
 
 from ..config import *
 from .maimaidx_api_data import maiApi
 from .maimaidx_error import *
-
-
-class Stats(BaseModel):
-
-    cnt: Optional[float] = None
-    diff: Optional[str] = None
-    fit_diff: Optional[float] = None
-    avg: Optional[float] = None
-    avg_dx: Optional[float] = None
-    std_dev: Optional[float] = None
-    dist: Optional[List[int]] = None
-    fc_dist: Optional[List[float]] = None
-
-
-Notes1 = namedtuple('Notes', ['tap', 'hold', 'slide', 'brk'])
-Notes2 = namedtuple('Notes', ['tap', 'hold', 'slide', 'touch', 'brk'])
-
-
-class Chart(BaseModel):
-
-    notes: Optional[Union[Notes1, Notes2]]
-    charter: Optional[str] = None
-
-
-class BasicInfo(BaseModel):
-
-    title: Optional[str]
-    artist: Optional[str]
-    genre: Optional[str]
-    bpm: Optional[int]
-    release_date: Optional[str]
-    version: Optional[str] = Field(alias='from')
-    is_new: Optional[bool]
+from .maimaidx_model import *
+from .tool import openfile, writefile
 
 
 def cross(checker: Union[List[str], List[float]], elem: Optional[Union[str, float, List[str], List[float], Tuple[float, float]]], diff: List[int]) -> Tuple[bool, List[int]]:
@@ -92,33 +57,11 @@ def in_or_equal(checker: Union[str, int], elem: Optional[Union[str, float, List[
         return checker == elem
 
 
-class Music(BaseModel):
-
-    id: Optional[str] = None
-    title: Optional[str] = None
-    type: Optional[str] = None
-    ds: Optional[List[float]] = []
-    level: Optional[List[str]] = []
-    cids: Optional[List[int]] = []
-    charts: Optional[List[Chart]] = []
-    basic_info: Optional[BasicInfo] = None
-    stats: Optional[List[Optional[Stats]]] = []
-    diff: Optional[List[int]] = []
-
-
-class RaMusic(BaseModel):
-    
-    id: str
-    ds: float
-    lv: str
-    type: str
-
-
 class MusicList(List[Music]):
     
-    def by_id(self, music_id: str) -> Optional[Music]:
+    def by_id(self, music_id: Union[str, int]) -> Optional[Music]:
         for music in self:
-            if music.id == music_id:
+            if music.id == str(music_id):
                 return music
         return None
 
@@ -127,18 +70,43 @@ class MusicList(List[Music]):
             if music.title == music_title:
                 return music
         return None
-    
+
+    @overload
+    def by_level(self, level: str, byid: bool = False) -> Optional[List[Music]]: ...
+    @overload
+    def by_level(self, level: List[str], byid: bool = False) -> Optional[List[str]]: ...
     def by_level(self, level: Union[str, List[str]], byid: bool = False) -> Optional[Union[List[Music], List[str]]]:
-        levelList = []             
         if isinstance(level, str):
             levelList = [music.id if byid else music for music in self if level in music.level]
         else:
             levelList = [music.id if byid else music for music in self for lv in level if lv in music.level]
         return levelList
+    
+    def by_plan(self, level: str) -> Dict[str, Union[PlanInfo, RaMusic, Dict[int, Union[PlanInfo, RaMusic]]]]:
+        lv = {}
+        for music in self.by_level(level):
+            if level in music.level:
+                count = Counter(music.level)
+                if count.get(level) > 1:
+                    lv[music.id] = { n: RaMusic(id=music.id, ds=music.ds[n], lv=str(n), lvp=music.level[n], type=music.type) for n, l in enumerate(music.level) if l == level }
+                else:
+                    index = music.level.index(level)
+                    lv[music.id] = RaMusic(id=music.id, ds=music.ds[index], lv=str(index), lvp=music.level[index], type=music.type)
+        return lv
 
-    def lvList(self, rating: bool = False) -> Dict[str, Dict[str, Union[List[Music], List[RaMusic]]]]:
-        level = {}
-        for lv in levelList:
+    @overload
+    def lvList(self) -> Dict[str, Dict[str, List[Music]]]: ...
+    @overload
+    def lvList(self, *, rating: Optional[bool] = False) -> Dict[str, Dict[str, List[RaMusic]]]: ...
+    @overload
+    def lvList(self, *, level: Optional[List[str]] = None, rating: Optional[bool] = False) -> Dict[str, Dict[str, List[RaMusic]]]: ...
+    def lvList(self, *, level: Optional[List[str]] = None, rating: Optional[bool] = False) -> Dict[str, Dict[str, Union[List[Music], List[RaMusic]]]]:
+        _level = {}
+        if isinstance(level, List):
+            _l = level
+        else:
+            _l = levelList
+        for lv in _l:
             if lv == '15':
                 r = range(1)
             elif lv in levelList[:6]:
@@ -147,19 +115,32 @@ class MusicList(List[Music]):
                 r = range(9, 6, -1)
             else:
                 r = range(6, -1, -1)
-            levellist = { f'{lv if "+" not in lv else lv[:-1]}.{_}': [] for _ in r }
+            levellist = {f'{lv if "+" not in lv else lv[:-1]}.{_}': [] for _ in r}
             musiclist = self.by_level(lv)
             for music in musiclist:
                 for diff, ds in enumerate(music.ds):
                     if str(ds) in levellist:
                         if rating:
-                            levellist[str(ds)].append(RaMusic(id=music.id, ds=ds, lv=str(diff), type=music.type))
+                            levellist[str(ds)].append(RaMusic(id=music.id, ds=ds, lv=str(diff), lvp=music.level[diff], type=music.type))
                         else:
                             levellist[str(ds)].append(music)
-            level[lv] = levellist
-        
-        return level
-    
+            _level[lv] = levellist
+        return  _level
+
+    def by_version(self, version: Union[str, List[str]]) -> Optional[List[Music]]:
+        versionList = []
+        if isinstance(version, str):
+            for music in self:
+                if music.id in ignore_music or int(music.id) > 100000: continue
+                if version == music.basic_info.version:
+                    versionList.append(music)
+        else:
+            for music in self:
+                if music.id in ignore_music or int(music.id) > 100000: continue
+                if music.basic_info.version in version:
+                    versionList.append(music)
+        return versionList
+
     def random(self):
         return random.choice(self)
 
@@ -215,19 +196,12 @@ def search_charts(checker: List[Chart], elem: str, diff: List[int]):
     return ret, diff_ret
 
 
-class Alias(BaseModel):
-
-    ID: Optional[str] = None
-    Name: Optional[str] = None
-    Alias: Optional[List[str]] = None
-
-
 class AliasList(List[Alias]):
 
-    def by_id(self, music_id: int) -> Optional[List[Alias]]:
+    def by_id(self, music_id: Union[str, int]) -> Optional[List[Alias]]:
         alias_music = []
         for music in self:
-            if music.ID == music_id:
+            if music.SongID == int(music_id):
                 alias_music.append(music)
         return alias_music
     
@@ -237,37 +211,6 @@ class AliasList(List[Alias]):
             if music_alias in music.Alias:
                 alias_list.append(music)
         return alias_list
-
-
-async def download_music_pictrue(id: Union[int, str]) -> Union[str, BytesIO]:
-    try:
-        if (file := coverdir / f'{id}.png').exists():
-            return file
-        id = int(id)
-        if id > 10000 and id <= 11000:
-            id -= 10000
-        if (file := coverdir / f'{id}.png').exists():
-            return file
-        async with httpx.AsyncClient(timeout=60) as client:
-            req = await client.get(f'https://www.diving-fish.com/covers/{id:05d}.png')
-            if req.status_code == 200:
-                return BytesIO(await req.read())
-            else:
-                return coverdir / '11000.png'
-    except:
-        return coverdir / '11000.png'
-
-
-async def openfile(file: str) -> Union[dict, list]:
-    async with aiofiles.open(file, 'r', encoding='utf-8') as f:
-        data = json.loads(await f.read())
-    return data
-
-
-async def writefile(file: str, data: Any) -> bool:
-    async with aiofiles.open(file, 'w', encoding='utf-8') as f:
-        await f.write(json.dumps(data, ensure_ascii=False, indent=4))
-    return True
 
 
 async def get_music_list() -> MusicList:
@@ -312,88 +255,54 @@ async def get_music_list() -> MusicList:
     except FileNotFoundError:
         log.error(f'未找到文件，请自行使用浏览器访问 "https://www.diving-fish.com/api/maimaidxprober/chart_stats" 将内容保存为 "music_chart.json" 存放在 "static" 目录下并重启bot')
 
-    total_list: MusicList = MusicList(music_data)
-    for num, music in enumerate(total_list):
+    total_list = MusicList()
+    for music in music_data:
         if music['id'] in chart_stats['charts']:
             _stats = [_data if _data else None for _data in chart_stats['charts'][music['id']]] if {} in chart_stats['charts'][music['id']] else chart_stats['charts'][music['id']]
         else:
             _stats = None
-        total_list[num] = Music(stats=_stats, **total_list[num])
+        total_list.append(Music(stats=_stats, **music))
 
     return total_list
 
 
 async def get_music_alias_list() -> AliasList:
-    """
-    获取所有别名
-    """
-    if local_alias_file.exists():
-        local_alias_data: Dict[str, Dict[str, Union[str, List[str]]]] = await openfile(local_alias_file)
-    else:
-        local_alias_data = {}
+    """获取所有别名"""
+    alias_data: List[Dict[str, Union[int, str, List[str]]]] = []
     try:
-        alias_data: Dict[str, Dict[str, Union[str, List[str]]]] = await maiApi.get_alias()
+        alias_data = await maiApi.get_alias()
         await writefile(alias_file, alias_data)
-    except asyncio.exceptions.TimeoutError:
-        log.error('获取别名超时。已切换至本地暂存文件')
-        alias_data = await openfile(alias_file)
-        if not alias_data:
-            log.error('本地暂存别名文件为空，请自行使用浏览器访问 "https://api.yuzuai.xyz/maimaidx/maimaidxalias" 获取别名数据并保存在 "static/music_alias.json" 文件中并重启bot')
-            raise ValueError
     except ServerError as e:
         log.error(e)
     except UnknownError:
         log.error('获取所有曲目别名信息错误，请检查网络环境。已切换至本地暂存文件')
         alias_data = await openfile(alias_file)
         if not alias_data:
-            log.error('本地暂存别名文件为空，请自行使用浏览器访问 "https://api.yuzuai.xyz/maimaidx/maimaidxalias" 获取别名数据并保存在 "static/music_alias.json" 文件中并重启bot')
+            log.error('本地暂存别名文件为空，请自行使用浏览器访问 "https://api.yuzuchan.moe/maimaidx/maimaidxalias" 获取别名数据并保存在 "static/all_alias.json" 文件中并重启bot')
             raise ValueError
-
-    for id, music in local_alias_data.items():
-        for name in music:
-            alias_data[id]['Alias'].append(name)
     
-    total_alias_list = AliasList(alias_data)
-    for _ in range(len(total_alias_list)):
-        total_alias_list[_] = Alias(ID=total_alias_list[_], Name=alias_data[total_alias_list[_]]['Name'], Alias=alias_data[total_alias_list[_]]['Alias'])
+    total_alias_list = AliasList()
+    for _a in alias_data:
+        total_alias_list.append(Alias(**_a))
 
     return total_alias_list
 
 
-async def update_local_alias(id: str, alias_name: str) -> bool:
-    try:
-        if local_alias_file.exists():
-            local_alias_data: Dict[str, List[str]] = await openfile(local_alias_file)
-        else:
-            local_alias_data: Dict[str, List[str]] = {}
-        if id not in local_alias_data:
-            local_alias_data[id] = []
-        local_alias_data[id].append(alias_name.lower())
-        mai.total_alias_list.by_id(id)[0].Alias.append(alias_name.lower())
-        await writefile(local_alias_file, local_alias_data)
-        return True
-    except Exception as e:
-        log.error(f'添加本地别名失败: {e}')
-        return False
-
-
 class MaiMusic:
 
-    total_list: Optional[MusicList]
+    total_list: MusicList
+    total_alias_list: AliasList
 
     def __init__(self) -> None:
         """封装所有曲目信息以及猜歌数据，便于更新"""
 
     async def get_music(self) -> MusicList:
-        """
-        获取所有曲目数据
-        """
+        """获取所有曲目数据"""
         self.total_list = await get_music_list()
 
     async def get_music_alias(self) -> AliasList:
-        """
-        获取所有曲目别名
-        """
+        """获取所有曲目别名"""
         self.total_alias_list = await get_music_alias_list()
+
 
 mai = MaiMusic()

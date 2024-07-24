@@ -29,5 +29,9 @@ class EnterError(Exception):
         return '参数输入错误'
     
 
+class CoverError(Exception):
+    """图片错误"""
+
+
 class UnknownError(Exception):
     """未知错误"""
