@@ -208,11 +208,8 @@ async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], messa
         obj = await maiApi.get_songs(name)
         if obj:
             if 'status' in obj and obj['status']:
-                msg = f'未找到别名为「{name}」的歌曲，但找到与此相同别名的投票：\n'
-                for _s in obj['status']:
-                    msg += f'- {_s["Tag"]}\n    ID {_s["SongID"]}: {name}\n'
-                msg += f'※ 可以使用指令「同意别名 {_s["Tag"]}」进行投票'
-                await search_alias_song.finish(msg.strip(), reply_message=True)
+                msg = f'未找到别名为「{name}」的歌曲'
+                await search_alias_song.finish(msg, reply_message=True)
             else:
                 alias_data = [Alias(**_a) for _a in obj]
     if alias_data:
@@ -224,7 +221,11 @@ async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], messa
             await search_alias_song.finish(msg.strip(), reply_message=True)
         else:
             music = mai.total_list.by_id(str(alias_data[0].SongID))
-            await search_alias_song.finish('您要找的是不是：' + await MessageSegment.image(event, await draw_music_info(music, user_id)), reply_message=True)
+            if music:
+                msg = '您要找的是不是：' + await MessageSegment.image(event, await draw_music_info(music, user_id))
+            else:
+                msg = f'未找到别名为「{name}」的歌曲'
+            await search_alias_song.finish(msg, reply_message=True)
     # id
     if name.isdigit() and (music := mai.total_list.by_id(name)):
         await search_alias_song.finish('您要找的是不是：' + await MessageSegment.image(event, await draw_music_info(music, user_id)), reply_message=True)
@@ -234,7 +235,7 @@ async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], messa
     # 标题
     result = mai.total_list.filter(title_search=name)
     if len(result) == 0:
-        await search_alias_song.finish(f'未找到别名为「{name}」的歌曲\n※ 可以使用「添加别名」指令给该乐曲添加别名\n※ 如果是歌名的一部分，请使用「查歌」指令查询哦。', reply_message=True)
+        await search_alias_song.finish(f'未找到别名为「{name}」的歌曲', reply_message=True)
     elif len(result) == 1:
         msg = await MessageSegment.image(event, await draw_music_info(result[0], user_id))
         await search_alias_song.finish('您要找的是不是：' + msg, reply_message=True)
