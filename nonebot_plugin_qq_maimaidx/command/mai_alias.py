@@ -7,7 +7,7 @@ from nonebot.params import CommandArg
 
 from ..libraries.maimaidx_music import mai
 
-alias_song = on_command('查询别名', priority=5)
+alias_song = on_command('查询别名')
 
 
 @alias_song.handle()

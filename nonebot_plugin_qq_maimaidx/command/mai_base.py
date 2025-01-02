@@ -7,22 +7,26 @@ from nonebot.adapters.qq import (
     DirectMessageCreateEvent,
     GroupAtMessageCreateEvent,
     Message,
+    MessageSegment,
 )
 from nonebot.params import CommandArg, Depends
 
-from ..config import Root, log, maiconfig
-from ..libraries.maimaidx_api_data import maiApi
+from ..config import Root, levelList, log, maiconfig
+from ..libraries.image import music_picture
 from ..libraries.maimaidx_database import get_user, insert_user, update_user
 from ..libraries.maimaidx_error import UserNotBindError
 from ..libraries.maimaidx_music import mai
 from ..libraries.maimaidx_music_info import draw_music_info
-from ..message import MessageSegment
+from ..libraries.maimaidx_player_score import rating_ranking_data, rise_score_data
+from ..message import image, send_image
 
-bind = on_command('绑定', priority=5)
-guildid = on_command('频道ID', priority=5)
-help = on_command('help', priority=5)
-mai_today = on_command('今日舞萌', priority=5)
-random_song = on_command('随机谱面', priority=5)
+bind            = on_command('绑定')
+guildid         = on_command('频道ID')
+help            = on_command('help')
+mai_today       = on_command('今日舞萌')
+random_song     = on_command('随机谱面')
+rise_score      = on_command('我要上分')
+rating_ranking  = on_command('查看排名')
 
 
 def get_qqid(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent, DirectMessageCreateEvent]) -> str:
@@ -33,9 +37,9 @@ def get_qqid(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent, Direc
 
 
 @bind.handle()
-async def _(event: GroupAtMessageCreateEvent, args: Message = CommandArg()):
+async def _(event: GroupAtMessageCreateEvent, message: Message = CommandArg()):
     try:
-        qqid = args.extract_plain_text().strip()
+        qqid = message.extract_plain_text().strip()
         user_id = event.author.member_openid
         if qqid.isdigit() and get_user(user_id):
             update_user(user_id, qqid)
@@ -58,7 +62,7 @@ async def _(event: Union[AtMessageCreateEvent, DirectMessageCreateEvent]):
 
 @help.handle()
 async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent]):
-    await help.finish(await MessageSegment.image(event, Root / 'maimaidxhelp.png'))
+    await send_image(help, event=event, data=Root / 'maimaidxhelp.png')
 
 
 @mai_today.handle()
@@ -83,9 +87,9 @@ async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], user_
         ds = '/'.join([str(_) for _ in music.ds])
         msg += f'{maiconfig.botName} Bot提醒您：打机时不要大力拍打或滑动哦\n今日推荐歌曲：'
         msg += f'ID.{music.id} - {music.title}'
-        msg += await MessageSegment.image(event, await maiApi.download_music_pictrue(music.id))
+        msg += await image(event, music_picture(music.id))
         msg += ds
-        await mai_today.send(msg)
+        await send_image(mai_today, msg)
     except UserNotBindError as e:
         await mai_today.send(str(e))
         
@@ -114,11 +118,46 @@ async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], messa
     else:
         music_data = mai.total_list.filter(level=level, diff=['绿黄红紫白'.index(match.group(2))], type=tp)
     if len(music_data) == 0:
-        msg = '没有这样的乐曲哦。'
+        await random_song.finish('没有这样的乐曲哦。')
+    pic = await draw_music_info(music_data.random(), user_id)
+    await send_image(random_song, event=event, data=pic)
+
+
+@rise_score.handle()
+async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], message: Message = CommandArg(), user_id: str = Depends(get_qqid)):
+    try:
+        if isinstance(event, GroupAtMessageCreateEvent):
+            user_id = get_user(user_id).QQID
+    except UserNotBindError as e:
+        await rise_score.finish(str(e))
+    
+    args = message.extract_plain_text().strip()
+    match = re.search(r'^([0-9]+\+?)?\+([0-9]+)$', args)
+    if not match:
+        rating = None
+        score = None
     else:
-        pic = await draw_music_info(music_data.random(), user_id)
-        msg = await MessageSegment.image(event, pic)
-    await random_song.send(msg)
+        rating = match.group(1)
+        score = int(match.group(2))
+    
+    if rating and rating not in levelList:
+        await rise_score.finish('无此等级', reply_message=True)
+
+    data = await rise_score_data(user_id, None, rating, score)
+    await send_image(rise_score, event=event, data=data)
+
+
+@rating_ranking.handle()
+async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], message: Message = CommandArg()):
+    name = ''
+    page = 1
+    args = message.extract_plain_text().strip()
+    if args.isdigit():
+        page = int(args)
+    else:
+        name = args.lower()
+    pic = await rating_ranking_data(name, page)
+    await send_image(rating_ranking, event=event, data=pic)
     
 
 async def data_update_daily():

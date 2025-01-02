@@ -17,15 +17,15 @@ from ..libraries.maimaidx_error import UserNotBindError
 from ..libraries.maimaidx_model import Alias
 from ..libraries.maimaidx_music import mai, maiApi
 from ..libraries.maimaidx_music_info import draw_music_info
-from ..message import MessageSegment
+from ..message import image, send_image
 
-search = on_command('查歌', priority=5)
-search_base = on_command('定数查歌', priority=5)
-search_bpm = on_command('bpm查歌', priority=5)
-search_artist = on_command('曲师查歌', priority=5)
-search_charter = on_command('谱师查歌', priority=5)
-search_alias_song = on_command('别名查歌', priority=5)
-query_chart = on_command('id', priority=5)
+search              = on_command('查歌')
+search_base         = on_command('定数查歌')
+search_bpm          = on_command('bpm查歌')
+search_artist       = on_command('曲师查歌')
+search_charter      = on_command('谱师查歌')
+search_alias_song   = on_command('别名查歌')
+query_chart         = on_command('id')
 
 
 def get_qqid(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent, DirectMessageCreateEvent]) -> str:
@@ -66,14 +66,13 @@ async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], args:
     if len(result) == 0:
         await search.send('没有找到这样的乐曲。\n※ 如果是别名请使用「别名查歌」指令进行查询哦。')
     elif len(result) == 1:
-        msg = await MessageSegment.image(event, await draw_music_info(result.random(), user_id))
-        await search.send(msg)
+        await send_image(search, event=event, data=await draw_music_info(result.random(), user_id))
     elif len(result) < 50:
         search_result = ''
         result.sort(key=lambda i: int(i.id))
         for music in result:
             search_result += f'{music.id}. {music.title}\n'
-        await search.send(await MessageSegment.image(event, text_to_image(search_result)))
+        await send_image(search, event=event, data=text_to_image(search_result))
     else:
         await search.send(f'结果过多（{len(result)} 条），请缩小查询范围。')
 
@@ -104,7 +103,7 @@ async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], args:
     msg = ''
     for i in result:
         msg += f'{i[0]}. {i[1]} {i[3]} {i[4]}({i[2]})\n'
-    await search_base.send(await MessageSegment.image(event, text_to_image(msg)))
+    await send_image(search_base, event=event, data=text_to_image(msg))
 
 
 @search_bpm.handle()
@@ -133,7 +132,7 @@ async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], args:
         if (page - 1) * SONGS_PER_PAGE <= i < page * SONGS_PER_PAGE:
             msg += f'No.{i + 1} {m.id}. {m.title} bpm {m.basic_info.bpm}\n'
     msg += f'第{page}页，共{len(music_data) // SONGS_PER_PAGE + 1}页'
-    await search_bpm.send(await MessageSegment.image(event, text_to_image(msg)))
+    await send_image(search_bpm, event=event, data=text_to_image(msg))
 
 
 @search_artist.handle()
@@ -162,7 +161,7 @@ async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], messa
         if (page - 1) * SONGS_PER_PAGE <= i < page * SONGS_PER_PAGE:
             msg += f'No.{i + 1} {m.id}. {m.title} {m.basic_info.artist}\n'
     msg += f'第{page}页，共{len(music_data) // SONGS_PER_PAGE + 1}页'
-    await search_artist.send(await MessageSegment.image(event, text_to_image(msg)))
+    await send_image(search_artist, event=event, data=text_to_image(msg))
 
 
 @search_charter.handle()
@@ -192,7 +191,7 @@ async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], messa
             diff_charter = zip([diffs[d] for d in m.diff], [m.charts[d].charter for d in m.diff])
             msg += f'No.{i + 1} {m.id}. {m.title} {" ".join([f"{d}/{c}" for d, c in diff_charter])}\n'
     msg += f'第{page}页，共{len(music_data) // SONGS_PER_PAGE + 1}页'
-    await search_charter.send(await MessageSegment.image(event, text_to_image(msg)))
+    await send_image(search_charter, event=event, data=text_to_image(msg))
 
 
 @search_alias_song.handle()
@@ -222,23 +221,24 @@ async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], messa
         else:
             music = mai.total_list.by_id(str(alias_data[0].SongID))
             if music:
-                msg = '您要找的是不是：' + await MessageSegment.image(event, await draw_music_info(music, user_id))
-            else:
-                msg = f'未找到别名为「{name}」的歌曲'
-            await search_alias_song.finish(msg, reply_message=True)
+                msg = '您要找的是不是：' + await image(event, await draw_music_info(music, user_id))
+                await send_image(search_alias_song, msg)
+            await search_alias_song.finish(f'未找到别名为「{name}」的歌曲', reply_message=True)
     # id
     if name.isdigit() and (music := mai.total_list.by_id(name)):
-        await search_alias_song.finish('您要找的是不是：' + await MessageSegment.image(event, await draw_music_info(music, user_id)), reply_message=True)
+        msg = '您要找的是不是：' + await image(event, await draw_music_info(music, user_id))
+        await send_image(search_alias_song, msg)
     if search_id := re.search(r'^id([0-9]*)$', name, re.IGNORECASE):
-        music = music = mai.total_list.by_id(search_id.group(1))
-        await search_alias_song.finish('您要找的是不是：' + await MessageSegment.image(event, await draw_music_info(music, user_id)), reply_message=True)
+        music = mai.total_list.by_id(search_id.group(1))
+        msg = '您要找的是不是：' + await image(event, await draw_music_info(music, user_id))
+        await send_image(search_alias_song, msg)
     # 标题
     result = mai.total_list.filter(title_search=name)
     if len(result) == 0:
         await search_alias_song.finish(f'未找到别名为「{name}」的歌曲', reply_message=True)
     elif len(result) == 1:
-        msg = await MessageSegment.image(event, await draw_music_info(result[0], user_id))
-        await search_alias_song.finish('您要找的是不是：' + msg, reply_message=True)
+        msg = '您要找的是不是：' + await image(event, await draw_music_info(result[0], user_id))
+        await send_image(search_alias_song, msg)
     elif len(result) < 50:
         msg = f'未找到别名为「{name}」的歌曲，但找到{len(result)}个相似标题的曲目：\n'
         for music in sorted(result, key=lambda x: int(x.id)):
@@ -258,8 +258,6 @@ async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], args:
         user_id = None
     id = args.extract_plain_text().strip()
     music = mai.total_list.by_id(id)
-    if not music:
-        msg = f'未找到ID为[{id}]的乐曲'
-    else:
-        msg = await MessageSegment.image(event, await draw_music_info(music, user_id))
-    await query_chart.send(msg)
+    if music:
+        await send_image(query_chart, event=event, data=await draw_music_info(music, user_id))
+    await query_chart.send(f'未找到ID为[{id}]的乐曲')

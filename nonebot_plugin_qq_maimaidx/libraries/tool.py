@@ -1,5 +1,4 @@
 import json
-import os
 import time
 from pathlib import Path
 from typing import Any, Union
@@ -29,4 +28,7 @@ async def writefile(file: Path, data: Any) -> bool:
 
 def delete_temp() -> None:
     for path in TempPicturePath.iterdir():
-        path.unlink()
+        try:
+            path.unlink()
+        except:
+            pass

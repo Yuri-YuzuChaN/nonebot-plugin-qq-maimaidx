@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from loguru import logger as log
-from nonebot import get_driver
+from nonebot import get_driver, get_plugin_config
 from pydantic import BaseModel
 
 driver = get_driver()
@@ -14,7 +14,7 @@ class Config(BaseModel):
     fileserver: str
     botName: str = list(driver.config.nickname)[0] if driver.config.nickname else 'Test'
     
-maiconfig = Config.parse_obj(driver.config)
+maiconfig = get_plugin_config(Config)
 
 Root: Path = Path(__file__).parent
 FileServer = maiconfig.fileserver
@@ -37,9 +37,7 @@ if not TempPicturePath.exists():
     TempPicturePath.mkdir()
 
 # 字体路径
-MEIRYO: Path =  static / 'meiryo.ttc'
-SIYUAN: Path = static / 'SourceHanSansSC-Bold.otf'
-HANYI: Path = static / 'HanYi.ttf'
+SIYUAN: Path =  static / 'ResourceHanRoundedCN-Bold.ttf'
 TBFONT: Path = static / 'Torus SemiBold.otf'
 
 
@@ -47,7 +45,22 @@ TBFONT: Path = static / 'Torus SemiBold.otf'
 SONGS_PER_PAGE: int = 25
 scoreRank: List[str] = ['d', 'c', 'b', 'bb', 'bbb', 'a', 'aa', 'aaa', 's', 's+', 'ss', 'ss+', 'sss', 'sss+']
 score_Rank: List[str] = ['d', 'c', 'b', 'bb', 'bbb', 'a', 'aa', 'aaa', 's', 'sp', 'ss', 'ssp', 'sss', 'sssp']
-score_Rank_l: Dict[str, str] = {'d': 'D', 'c': 'C', 'b': 'B', 'bb': 'BB', 'bbb': 'BBB', 'a': 'A', 'aa': 'AA', 'aaa': 'AAA', 's': 'S', 'sp': 'Sp', 'ss': 'SS', 'ssp': 'SSp', 'sss': 'SSS', 'sssp': 'SSSp'}
+score_Rank_l: Dict[str, str] = {
+    'd': 'D', 
+    'c': 'C', 
+    'b': 'B', 
+    'bb': 'BB', 
+    'bbb': 'BBB', 
+    'a': 'A', 
+    'aa': 'AA', 
+    'aaa': 'AAA', 
+    's': 'S', 
+    'sp': 'Sp', 
+    'ss': 'SS', 
+    'ssp': 'SSp', 
+    'sss': 'SSS', 
+    'sssp': 'SSSp'
+}
 comboRank: List[str] = ['fc', 'fc+', 'ap', 'ap+']
 combo_rank: List[str] = ['fc', 'fcp', 'ap', 'app']
 syncRank: List[str] = ['fs', 'fs+', 'fdx', 'fdx+']
@@ -59,9 +72,8 @@ achievementList: List[float] = [50.0, 60.0, 70.0, 75.0, 80.0, 90.0, 94.0, 97.0, 
 BaseRaSpp: List[float] = [7.0, 8.0, 9.6, 11.2, 12.0, 13.6, 15.2, 16.8, 20.0, 20.3, 20.8, 21.1, 21.6, 22.4]
 fcl: Dict[str, str] = {'fc': 'FC', 'fcp': 'FCp', 'ap': 'AP', 'app': 'APp'}
 fsl: Dict[str, str] = {'fs': 'FS', 'fsp': 'FSp', 'fsd': 'FSD', 'fdx': 'FSD', 'fsdp': 'FSDp', 'fdxp': 'FSDp', 'sync': 'Sync'}
-ignore_music: List[str] = ['70', '146', '185', '189', '190', '341', '419', '451', '455', '460', '524', '687', '688', '712', '731', '792', '853', '10146', '11213', '11253', '11267']
 plate_to_version: Dict[str, str] = {
-    '初': 'maimai',
+    # '初': 'maimai',
     '真': 'maimai PLUS',
     '超': 'maimai GreeN',
     '檄': 'maimai GreeN PLUS',
