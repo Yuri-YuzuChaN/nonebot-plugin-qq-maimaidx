@@ -18,7 +18,6 @@ from ..libraries.maimaidx_music import mai
 from ..libraries.maimaidx_music_info import draw_music_play_data
 from ..libraries.maimaidx_player_score import music_global_data
 from ..message import image, send_image
-from .MessageModels import infokeyboard
 
 best50  = on_command('b50')
 minfo   = on_command('minfo')
