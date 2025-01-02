@@ -177,7 +177,7 @@ async def draw_music_play_data(qqid: int, music_id: str) -> Union[str, MessageSe
                     dxscore = info.dxScore
                     _dxscore = sum(music.charts[num].notes) * 3
                     dxnum = dxScore(dxscore / _dxscore * 100)
-                    rating, rate = info.ra, info.rate
+                    rating, rate = info.ra, score_Rank_l[info.rate]
                     im.alpha_composite(Image.open(maimaidir / 'ra-dx.png'), (850, 272 + y * num))
                     if dxnum != 0:
                         im.alpha_composite(
