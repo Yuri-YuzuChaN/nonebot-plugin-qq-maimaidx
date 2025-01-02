@@ -287,10 +287,11 @@ async def draw_rating_table(qqid: int, rating: str, isfc: bool = False) -> Union
                 'fc': _d.fc,
                 'level': _d.level
             }
+            rate = computeRa(_d.ds, _d.achievements, onlyrate=True).lower()
             if _d.achievements >= 80:
                 statistics['clear'] += 1
-            if _d.rate in score_Rank[-6:]:
-                statistics[_d.rate] += 1
+            if rate in score_Rank[-6:]:
+                statistics[rate] += 1
             if _d.fc:
                 statistics[_d.fc] += 1
             if _d.fs:
