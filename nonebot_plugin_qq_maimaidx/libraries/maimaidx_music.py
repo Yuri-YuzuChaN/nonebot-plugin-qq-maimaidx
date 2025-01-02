@@ -230,13 +230,11 @@ async def get_music_list() -> MusicList:
     # MusicData
     try:
         try: 
-            raise asyncio.exceptions.TimeoutError
             music_data = await maiApi.music_data()
             await writefile(music_file, music_data)
         except asyncio.exceptions.TimeoutError:
             log.error('从diving-fish获取maimaiDX曲库数据超时，正在使用yuzuapi中转获取曲库数据')
             try:
-                raise ServerError
                 music_data = await maiApi.transfer_music()
                 await writefile(music_file, music_data)
             except ServerError:
@@ -253,13 +251,11 @@ async def get_music_list() -> MusicList:
     # ChartStats
     try:
         try:
-            raise asyncio.exceptions.TimeoutError
             chart_stats = await maiApi.chart_stats()
             await writefile(chart_file, chart_stats)
         except asyncio.exceptions.TimeoutError:
             log.error('从diving-fish获取maimaiDX数据获取超时，正在使用yuzuapi中转获取单曲数据')
             try:
-                raise ServerError
                 chart_stats = await maiApi.transfer_chart()
                 await writefile(chart_file, chart_stats)
             except ServerError:
