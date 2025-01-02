@@ -272,8 +272,8 @@ async def draw_rating_table(qqid: int, rating: str, isfc: bool = False) -> Union
             'app':   0,
             'fs':    0,
             'fsp':   0,
-            'fdx':   0,
-            'fdxp':  0,
+            'fsd':   0,
+            'fsdp':  0,
         }
         fromid = {}
         
