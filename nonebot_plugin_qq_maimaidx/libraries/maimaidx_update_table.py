@@ -110,15 +110,22 @@ async def update_plate_table() -> str:
         for _ in list(reversed(levelList)):
             rlv[_] = []
         for _v in version:
-            
-            v = ''
-            for key in mai.total_plate_id_list.keys():
-                if _v in key:
-                    v = key
-                    break
+            if _v in platecn:
+                _v = platecn[_v]
+            if _v in ['熊', '华', '華']:
+                _ver = '熊&华'
+            elif _v in ['爽', '煌']:
+                _ver = '爽&煌'
+            elif _v in ['宙', '星']:
+                _ver = '宙&星'
+            elif _v in ['祭', '祝']:
+                _ver = '祭&祝'
+            elif _v in ['双', '宴']:
+                _ver = '双&宴'
             else:
-                continue
-            music_id_list = mai.total_plate_id_list[v]
+                _ver = _v
+            
+            music_id_list = mai.total_plate_id_list[_ver]
             music = mai.total_list.by_id_list(music_id_list)
             ralv = copy.deepcopy(rlv)
 

@@ -376,25 +376,28 @@ async def draw_rating_table(qqid: int, rating: str, isfc: bool = False) -> Union
 async def draw_plate_table(qqid: int, version: str, plan: str) -> Union[str, Image.Image]:
     """绘制完成表"""
     try:
-        if version == '真':
-            ver = list(set(_v for _v in list(plate_to_version.values())[0:2]))
-        elif version in ['华', '華']:
+        if version in platecn:
+            version = platecn[version]
+        if version in ['熊', '华', '華']:
             ver = [plate_to_version['熊']]
-        elif version == '煌':
+            _ver = '熊&华'
+        elif version in ['爽', '煌']:
             ver = [plate_to_version['爽']]
-        elif version == '星':
+            _ver = '爽&煌'
+        elif version in ['宙', '星']:
             ver = [plate_to_version['宙']]
-        elif version == '祝':
+            _ver = '宙&星'
+        elif version in ['祭', '祝']:
             ver = [plate_to_version['祭']]
+            _ver = '祭&祝'
+        elif version in ['双', '宴']:
+            ver = [plate_to_version['双']]
+            _ver = '双&宴'
         else:
             ver = [plate_to_version[version]]
-            
-        v = ''
-        for key in mai.total_plate_id_list.keys():
-            if version in key:
-                v = key
-                break
-        music_id_list = mai.total_plate_id_list[v]
+            _ver = version
+  
+        music_id_list = mai.total_plate_id_list[_ver]
         music = mai.total_list.by_id_list(music_id_list)
         plate_num = len(music_id_list)
         playerdata: List[PlayInfoDefault] = []
@@ -472,10 +475,17 @@ async def draw_plate_table(qqid: int, version: str, plan: str) -> Union[str, Ima
                         y += 115
                     else:
                         x += 115
-                    if (m := ra[_r][_ms][3]) and m.fc:
-                        im.alpha_composite(complete_bg, (x, y))
-                        fc = Image.open(maimaidir / f'UI_CHR_PlayBonus_{fcl[m.fc]}.png').resize((75, 75))
-                        im.alpha_composite(fc, (x + 13, y + 3))
+                    f: List[int] = []
+                    for n, play in enumerate(ra[_r][_ms]):
+                        if play is None or not play.fc:
+                            continue
+                        if n == 3:
+                            im.alpha_composite(complete_bg, (x, y))
+                            fc = Image.open(maimaidir / f'UI_CHR_PlayBonus_{fcl[play.fc]}.png').resize((75, 75))
+                            im.alpha_composite(fc, (x + 13, y + 3))
+                        f.append(n)
+                    for n in f:
+                        im.alpha_composite(finished_bg[n], (x + 5 + 25 * n, y + 67))
         if plan == '将':
             lv = [plate_num - sum([1 for _ in playerdata if _.level_index == n and _.achievements >= 100]) for n in range(4)]
             for _r in ra:
@@ -487,7 +497,7 @@ async def draw_plate_table(qqid: int, version: str, plan: str) -> Union[str, Ima
                         y += 115
                     else:
                         x += 115
-                    f: list[int] = []
+                    f: List[int] = []
                     for n, play in enumerate(ra[_r][_ms]):
                         if play is None or play.achievements < 100:
                             continue
@@ -511,10 +521,17 @@ async def draw_plate_table(qqid: int, version: str, plan: str) -> Union[str, Ima
                         y += 115
                     else:
                         x += 115
-                    if (m := ra[_r][_ms][3]) and m.fc in _fc:
-                        im.alpha_composite(complete_bg, (x, y))
-                        ap = Image.open(maimaidir / f'UI_CHR_PlayBonus_{fcl[m.fc]}.png').resize((75, 75))
-                        im.alpha_composite(ap, (x + 13, y + 3))
+                    f: List[int] = []
+                    for n, play in enumerate(ra[_r][_ms]):
+                        if play is None or play.fc not in _fc:
+                            continue
+                        if n == 3:
+                            im.alpha_composite(complete_bg, (x, y))
+                            ap = Image.open(maimaidir / f'UI_CHR_PlayBonus_{fcl[play.fc]}.png').resize((75, 75))
+                            im.alpha_composite(ap, (x + 13, y + 3))
+                        f.append(n)
+                    for n in f:
+                        im.alpha_composite(finished_bg[n], (x + 5 + 25 * n, y + 67))
         if plan == '舞舞':
             fs = ['fsd', 'fdx', 'fsdp', 'fdxp']
             lv = [plate_num - sum([1 for _ in playerdata if _.level_index == n and _.fs in fs]) for n in range(4)]
@@ -527,10 +544,17 @@ async def draw_plate_table(qqid: int, version: str, plan: str) -> Union[str, Ima
                         y += 115
                     else:
                         x += 115
-                    if (m := ra[_r][_ms][3]) and m.fs in fs:
-                        im.alpha_composite(complete_bg, (x, y))
-                        fsd = Image.open(maimaidir / f'UI_CHR_PlayBonus_{fsl[m.fs]}.png').resize((75, 75))
-                        im.alpha_composite(fsd, (x + 13, y + 3))
+                    f: List[int] = []
+                    for n, play in enumerate(ra[_r][_ms]):
+                        if play is None or play.fs not in fs:
+                            continue
+                        if n == 3:
+                            im.alpha_composite(complete_bg, (x, y))
+                            fsd = Image.open(maimaidir / f'UI_CHR_PlayBonus_{fsl[play.fs]}.png').resize((75, 75))
+                            im.alpha_composite(fsd, (x + 13, y + 3))
+                        f.append(n)
+                    for n in f:
+                        im.alpha_composite(finished_bg[n], (x + 5 + 25 * n, y + 67))
         # for num, _v in enumerate(lv):
         #     if _v == 0:
         #         mr.draw(420 + 220 * num, 230, 40, '完成', (5, 51, 101, 255), 'mm')
