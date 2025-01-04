@@ -277,6 +277,7 @@ async def draw_rating_table(qqid: int, rating: str, isfc: bool = False) -> Union
         }
         fromid = {}
         
+        sp = score_Rank[-6:]
         for _d in obj:
             if _d.level != rating:
                 continue
@@ -290,12 +291,21 @@ async def draw_rating_table(qqid: int, rating: str, isfc: bool = False) -> Union
             rate = computeRa(_d.ds, _d.achievements, onlyrate=True).lower()
             if _d.achievements >= 80:
                 statistics['clear'] += 1
-            if rate in score_Rank[-6:]:
-                statistics[rate] += 1
+            if rate in sp:
+                r_index = sp.index(rate)
+                for _r in range(r_index + 1):
+                    statistics[sp[_r]] += 1
             if _d.fc:
-                statistics[_d.fc] += 1
+                fc_index = combo_rank.index(_d.fc)
+                for _f in range(fc_index + 1):
+                    statistics[combo_rank[_f]] += 1
             if _d.fs:
-                statistics[_d.fs] += 1
+                if _d.fs == 'sync':
+                    statistics[_d.fs] += 1
+                else:
+                    fs_index = sync_rank.index(_d.fs)
+                    for _s in range(fs_index + 1):
+                        statistics[sync_rank[_s]] += 1
 
         achievements_fc_list: List[Union[float, List[float]]] = []
         lvlist = mai.total_level_data[rating]
@@ -354,12 +364,11 @@ async def draw_rating_table(qqid: int, rating: str, isfc: bool = False) -> Union
                         im.alpha_composite(complete_bg, (x + 2, y - 18))
                         im.alpha_composite(fc, (x + 15, y - 12))
 
-        lvlistlen = sum([len(lvlist[_]) for _ in lvlist])
-        if len(achievements_fc_list) == lvlistlen:
-            r = calc_achievements_fc(achievements_fc_list, lvlistlen, isfc)
+        if len(achievements_fc_list) == lvnum:
+            r = calc_achievements_fc(achievements_fc_list, lvnum, isfc)
             if r != -1:
                 pic = fcl[combo_rank[r]] if isfc else score_Rank_l[score_Rank[-6:][r]]
-                im.alpha_composite(Image.open(maimaidir / f'UI_MSS_Allclear_Icon_{pic}.png'), (1270, 120))
+                im.alpha_composite(Image.open(maimaidir / f'UI_MSS_Allclear_Icon_{pic}.png'), (40, 40))
         
         # msg = MessageSegment.image(await image_to_save(im))
         msg = im
@@ -441,8 +450,8 @@ async def draw_plate_table(qqid: int, version: str, plan: str) -> Union[str, Ima
 
         im = Image.open(platedir / f'{version}.png')
         draw = ImageDraw.Draw(im)
-        tr = DrawText(draw, TBFONT)
-        mr = DrawText(draw, SIYUAN)
+        # tr = DrawText(draw, TBFONT)
+        # mr = DrawText(draw, SIYUAN)
         plate = Image.open(platedir / f'{version}{"極" if plan == "极" else plan}.png').resize((1000, 161))
         im.alpha_composite(plate, (200, 35))
         # im.alpha_composite(Image.open(maimaidir / f'{plate_to_version[version]}.png'), (361, 300))
@@ -465,7 +474,7 @@ async def draw_plate_table(qqid: int, version: str, plan: str) -> Union[str, Ima
         #                 fc = Image.open(root / 'maimaidx' / 'maimai' / f'UI_MSS_MBase_Icon_{fcl[_m["fc"]]}.png')
         #                 im.alpha_composite(fc, (x, y))
         if plan == '极' or plan == '極':
-            lv = [plate_num - sum([1 for _ in playerdata if _.level_index == n and _.fc]) for n in range(4)]
+            # lv = [plate_num - sum([1 for _ in playerdata if _.level_index == n and _.fc]) for n in range(4)]
             for _r in ra:
                 x = 200
                 y += 15
@@ -487,7 +496,7 @@ async def draw_plate_table(qqid: int, version: str, plan: str) -> Union[str, Ima
                     for n in f:
                         im.alpha_composite(finished_bg[n], (x + 5 + 25 * n, y + 67))
         if plan == '将':
-            lv = [plate_num - sum([1 for _ in playerdata if _.level_index == n and _.achievements >= 100]) for n in range(4)]
+            # lv = [plate_num - sum([1 for _ in playerdata if _.level_index == n and _.achievements >= 100]) for n in range(4)]
             for _r in ra:
                 x = 200
                 y += 15
@@ -511,7 +520,7 @@ async def draw_plate_table(qqid: int, version: str, plan: str) -> Union[str, Ima
                         im.alpha_composite(finished_bg[n], (x + 5 + 25 * n, y + 67))
         if plan == '神':
             _fc = ['ap', 'app']
-            lv = [plate_num - sum([1 for _ in playerdata if _.level_index == n and _.fc in _fc]) for n in range(4)]
+            # lv = [plate_num - sum([1 for _ in playerdata if _.level_index == n and _.fc in _fc]) for n in range(4)]
             for _r in ra:
                 x = 200
                 y += 15
@@ -534,7 +543,7 @@ async def draw_plate_table(qqid: int, version: str, plan: str) -> Union[str, Ima
                         im.alpha_composite(finished_bg[n], (x + 5 + 25 * n, y + 67))
         if plan == '舞舞':
             fs = ['fsd', 'fdx', 'fsdp', 'fdxp']
-            lv = [plate_num - sum([1 for _ in playerdata if _.level_index == n and _.fs in fs]) for n in range(4)]
+            # lv = [plate_num - sum([1 for _ in playerdata if _.level_index == n and _.fs in fs]) for n in range(4)]
             for _r in ra:
                 x = 225
                 y += 15

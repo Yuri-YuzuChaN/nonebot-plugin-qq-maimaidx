@@ -13,8 +13,8 @@ from nonebot.params import CommandArg, Depends
 from ..config import SONGS_PER_PAGE, diffs
 from ..libraries.image import text_to_image
 from ..libraries.maimaidx_database import get_user
-from ..libraries.maimaidx_error import UserNotBindError
-from ..libraries.maimaidx_model import Alias
+from ..libraries.maimaidx_error import AliasesNotFoundError, UserNotBindError
+from ..libraries.maimaidx_model import AliasStatus
 from ..libraries.maimaidx_music import mai, maiApi
 from ..libraries.maimaidx_music_info import draw_music_info
 from ..message import image, send_image
@@ -204,13 +204,16 @@ async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], messa
     name = message.extract_plain_text().strip().lower()
     alias_data = mai.total_alias_list.by_alias(name)
     if not alias_data:
-        obj = await maiApi.get_songs(name)
+        try:
+            obj = await maiApi.get_songs(name)
+        except AliasesNotFoundError:
+            await search_alias_song.finish(f'未找到别名为「{name}」的歌曲', reply_message=True)
         if obj:
-            if 'status' in obj and obj['status']:
+            if type(obj[0]) == AliasStatus:
                 msg = f'未找到别名为「{name}」的歌曲'
                 await search_alias_song.finish(msg, reply_message=True)
             else:
-                alias_data = [Alias(**_a) for _a in obj]
+                alias_data = obj
     if alias_data:
         if len(alias_data) != 1:
             msg = f'找到{len(alias_data)}个相同别名的曲目：\n'
