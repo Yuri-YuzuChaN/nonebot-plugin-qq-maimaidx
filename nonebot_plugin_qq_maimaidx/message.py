@@ -42,7 +42,7 @@ async def send_image(
 ) -> None:
     if event is not None and data is not None:
         msg = await image(event, data)
-    while True:
+    for n in range(3):
         try:
             await matcher.finish(msg)
         except ActionFailed as e:
