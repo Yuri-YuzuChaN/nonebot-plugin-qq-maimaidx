@@ -545,11 +545,11 @@ async def draw_plate_table(qqid: int, version: str, plan: str) -> Union[str, Ima
             fs = ['fsd', 'fdx', 'fsdp', 'fdxp']
             # lv = [plate_num - sum([1 for _ in playerdata if _.level_index == n and _.fs in fs]) for n in range(4)]
             for _r in ra:
-                x = 225
+                x = 200
                 y += 15
                 for num, _ms in enumerate(ra[_r]):
                     if num % 10 == 0:
-                        x = 225
+                        x = 200
                         y += 115
                     else:
                         x += 115
