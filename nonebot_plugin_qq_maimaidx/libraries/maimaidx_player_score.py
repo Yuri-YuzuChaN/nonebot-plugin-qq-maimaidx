@@ -378,6 +378,8 @@ async def rise_score_data(
         msg = im.crop((200, 0, 1200, height))
     except UserNotFoundError as e:
         msg = str(e)
+    except UserNotExistsError as e:
+        msg = str(e)
     except UserDisabledQueryError as e:
         msg = str(e)
     except Exception as e:
@@ -685,6 +687,8 @@ async def level_process_data(
         msg = im
     except UserNotFoundError as e:
         msg = str(e)
+    except UserNotExistsError as e:
+        msg = str(e)
     except UserDisabledQueryError as e:
         msg = str(e)
     except Exception as e:
@@ -753,6 +757,8 @@ async def level_achievement_list_data(
         msg = im
         # msg = MessageSegment.image(await image_to_save(text_to_image(data.strip())))
     except UserNotFoundError as e:
+        msg = str(e)
+    except UserNotExistsError as e:
         msg = str(e)
     except UserDisabledQueryError as e:
         msg = str(e)

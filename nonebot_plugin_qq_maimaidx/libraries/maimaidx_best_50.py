@@ -382,6 +382,8 @@ async def generate(
         msg = await draw_best.draw()
     except UserNotFoundError as e:
         msg = str(e)
+    except UserNotExistsError as e:
+        msg = str(e)
     except UserDisabledQueryError as e:
         msg = str(e)
     except Exception as e:

@@ -38,6 +38,8 @@ async def draw_music_info(music: Music, qqid: Optional[int] = None, user: Option
             calc = False
     except UserNotFoundError:
         calc = False
+    except UserNotExistsError as e:
+        calc = False
     except UserDisabledQueryError:
         calc = False
     except Exception:
@@ -221,6 +223,8 @@ async def draw_music_play_data(qqid: int, music_id: str) -> Union[str, MessageSe
         msg = im
     except UserNotFoundError as e:
         msg = str(e)
+    except UserNotExistsError as e:
+        msg = str(e)
     except UserDisabledQueryError as e:
         msg = str(e)
     except MusicNotPlayError as e:
@@ -373,6 +377,8 @@ async def draw_rating_table(qqid: int, rating: str, isfc: bool = False) -> Union
         # msg = MessageSegment.image(await image_to_save(im))
         msg = im
     except UserNotFoundError as e:
+        msg = str(e)
+    except UserNotExistsError as e:
         msg = str(e)
     except UserDisabledQueryError as e:
         msg = str(e)
@@ -572,6 +578,8 @@ async def draw_plate_table(qqid: int, version: str, plan: str) -> Union[str, Ima
         
         msg = im
     except UserNotFoundError as e:
+        msg = str(e)
+    except UserNotExistsError as e:
         msg = str(e)
     except UserDisabledQueryError as e:
         msg = str(e)

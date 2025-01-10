@@ -206,14 +206,14 @@ async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], messa
     if not alias_data:
         try:
             obj = await maiApi.get_songs(name)
+            if obj:
+                if type(obj[0]) == AliasStatus:
+                    msg = f'未找到别名为「{name}」的歌曲'
+                    await search_alias_song.finish(msg, reply_message=True)
+                else:
+                    alias_data = obj
         except AliasesNotFoundError:
-            await search_alias_song.finish(f'未找到别名为「{name}」的歌曲', reply_message=True)
-        if obj:
-            if type(obj[0]) == AliasStatus:
-                msg = f'未找到别名为「{name}」的歌曲'
-                await search_alias_song.finish(msg, reply_message=True)
-            else:
-                alias_data = obj
+            pass
     if alias_data:
         if len(alias_data) != 1:
             msg = f'找到{len(alias_data)}个相同别名的曲目：\n'
