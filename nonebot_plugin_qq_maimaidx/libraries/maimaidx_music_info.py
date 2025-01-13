@@ -92,14 +92,14 @@ async def draw_music_info(music: Music, qqid: Optional[int] = None, user: Option
             charter = music.charts[num].charter
             if coloumWidth(charter) > 19:
                 charter = changeColumnWidth(charter, 18) + '...'
-            mr.draw(372, 1030 + 47 * (num - 2), 20, charter, default_color, 'mm')
+            mr.draw(372, 1030 + 47 * (num - 2), 18, charter, default_color, 'mm')
             ra = sorted([computeRa(music.ds[num], r) for r in achievementList[-6:]], reverse=True)
             for _n, value in enumerate(ra):
                 size = 25
                 if not calc:
                     rating = value
                 elif not isfull:
-                    size = 25
+                    size = 20
                     rating = f'{value}(+{value})'
                 elif value > bestlist[-1].ra:
                     new = newbestscore(music.id, num, value, bestlist)
