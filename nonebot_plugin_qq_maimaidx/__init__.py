@@ -29,7 +29,7 @@ async def get_music():
     """
     bot启动时开始获取所有数据
     """
-    maiApi.load_token()
+    maiApi.load_token_proxy()
     log.info('正在获取maimai所有曲目信息')
     await mai.get_music()
     log.info('正在获取maimai牌子数据')

@@ -11,6 +11,7 @@ class Config(BaseModel):
     
     maimaidxtoken: Optional[str]
     maimaidxpath: str
+    maimaidxproxy: bool = False
     fileserver: str
     botName: str = list(driver.config.nickname)[0] if driver.config.nickname else 'Test'
     

@@ -9,7 +9,8 @@ from .maimaidx_model import *
 
 class MaimaiAPI:
     
-    MaiAPI = 'https://www.diving-fish.com/api/maimaidxprober'
+    MaiProberAPI = 'https://www.diving-fish.com/api/maimaidxprober'
+    MaiProxyAPI = 'https://api.yuzuchan.xyz'
     MaiCover = 'https://www.diving-fish.com/covers'
     MaiAliasAPI = 'https://www.yuzuchan.moe/api/maimaidx'
     QQAPI = 'http://q1.qlogo.cn/g'
@@ -19,7 +20,8 @@ class MaimaiAPI:
         self.headers = None
         self.token = None
 
-    def load_token(self) -> None:
+    def load_token_proxy(self) -> None:
+        self.MaiAPI = self.MaiProberAPI if not maiconfig.maimaidxproxy else self.MaiProxyAPI
         self.token = maiconfig.maimaidxtoken
         if self.token:
             self.headers = {'developer-token': self.token}
