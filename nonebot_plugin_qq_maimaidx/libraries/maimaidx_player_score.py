@@ -410,7 +410,7 @@ def plate_message(
     return result
 
 
-async def player_plate_data(qqid: int, username: str, ver: str, plan: str) -> Union[Image.Image, str]:
+async def player_plate_data(qqid: int, username: str, version: str, plan: str) -> Union[Image.Image, str]:
     """
     查看牌子进度
     
@@ -422,30 +422,32 @@ async def player_plate_data(qqid: int, username: str, ver: str, plan: str) -> Un
     Returns:
         `str`
     """
-    if ver in ['霸', '舞']:
-        version = list(set(_v for _v in list(plate_to_version.values())[:-9]))
-    elif ver == '真':
-        version = list(set(_v for _v in list(plate_to_version.values())[0:2]))
-    elif ver == '华':
-        version = [plate_to_version['熊']]
-        ver = '熊&华'
-    elif ver == '煌':
-        version = [plate_to_version['爽']]
-        ver = '爽&煌'
-    elif ver == '星':
-        version = [plate_to_version['宙']]
-        ver = '宙&星'
-    elif ver == '祝':
-        version = [plate_to_version['祭']]
-        ver = '祭&祝'
-    elif ver == '双':
-        version = [plate_to_version['双']]
-        ver = '双&宴'
+    if version in platecn:
+        version = platecn[version]
+    if version in ['霸', '舞']:
+        ver = list(set(_v for _v in list(plate_to_version.values())[:-9]))
+        _ver = '舞'
+    elif version in ['熊', '华', '華']:
+        ver = [plate_to_version['熊']]
+        _ver = '熊&华'
+    elif version in ['爽', '煌']:
+        ver = [plate_to_version['爽']]
+        _ver = '爽&煌'
+    elif version in ['宙', '星']:
+        ver = [plate_to_version['宙']]
+        _ver = '宙&星'
+    elif version in ['祭', '祝']:
+        ver = [plate_to_version['祭']]
+        _ver = '祭&祝'
+    elif version in ['双', '宴']:
+        ver = [plate_to_version['双']]
+        _ver = '双&宴'
     else:
-        version = [plate_to_version[ver]]
+        ver = [plate_to_version[version]]
+        _ver = version
     
     try:
-        verlist = await maiApi.query_user_plate(qqid=qqid, username=username, version=version)
+        verlist = await maiApi.query_user_plate(qqid=qqid, username=username, version=ver)
     except UserNotFoundError as e:
         return str(e)
     except UserDisabledQueryError as e:
@@ -469,8 +471,8 @@ async def player_plate_data(qqid: int, username: str, ver: str, plan: str) -> Un
     remaster: List[int] = []
     
     # 已游玩未完成曲目
-    if ver in ['舞', '霸']:
-        plate_id_list = mai.total_plate_id_list['舞']
+    plate_id_list = mai.total_plate_id_list[_ver]
+    if _ver in ['舞', '霸']:
         remaster = mai.total_plate_id_list['舞ReMASTER']
         for music in verlist:
             if music.song_id not in plate_id_list:
@@ -481,7 +483,6 @@ async def player_plate_data(qqid: int, username: str, ver: str, plan: str) -> Un
                 unfinished.append((music.song_id, music.level_index))
             played.append((music.song_id, music.level_index))
     else:
-        plate_id_list = mai.total_plate_id_list[ver]
         for music in verlist:
             if music.song_id not in plate_id_list:
                 continue
@@ -501,7 +502,7 @@ async def player_plate_data(qqid: int, username: str, ver: str, plan: str) -> Un
             type=music.type,
             id=int(music.id)
         )
-        range_ = range(5 if ver in ['舞', '霸'] and int(music.id) in remaster else 4)
+        range_ = range(5 if version in ['舞', '霸'] and int(music.id) in remaster else 4)
         for level_index in range_:
             if (m := (info.song_id, level_index)) not in played or m in unfinished:
                 _info = info.model_copy()
@@ -518,13 +519,13 @@ async def player_plate_data(qqid: int, username: str, ver: str, plan: str) -> Un
 
     appellation = username if username else '您'
     result = dedent(f'''\
-        {appellation}的「{ver}{plan}」剩余进度如下：
+        {appellation}的「{version}{plan}」剩余进度如下：
         Basic剩余「{len(basic)}」首
         Advanced剩余「{len(advanced)}」首
         Expert剩余「{len(expert)}」首
         Master剩余「{len(master)}」首
     ''')
-    if ver in ['舞', '霸']:
+    if version in ['舞', '霸']:
         result += f'Re:Master剩余「{len(re_master)}」首\n'
     
     if len(difficult) > 0:
@@ -548,7 +549,7 @@ async def player_plate_data(qqid: int, username: str, ver: str, plan: str) -> Un
         else:
             result += '已经没有定数大于13.6的曲目了，加油清谱捏！\n'
     else:
-        result = f'已经没有剩余的的曲目了，恭喜{appellation}完成「{ver}{plan}」！'
+        result = f'已经没有剩余的的曲目了，恭喜{appellation}完成「{version}{plan}」！'
     return result
 
 
