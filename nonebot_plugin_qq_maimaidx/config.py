@@ -9,9 +9,10 @@ driver = get_driver()
 
 class Config(BaseModel):
     
-    maimaidxtoken: Optional[str]
+    maimaidxtoken: Optional[str] = None
     maimaidxpath: str
-    maimaidxproxy: bool = False
+    maimaidxproberproxy: bool = False
+    maimaidxaliasproxy: bool = False
     fileserver: str
     botName: str = list(driver.config.nickname)[0] if driver.config.nickname else 'Test'
     

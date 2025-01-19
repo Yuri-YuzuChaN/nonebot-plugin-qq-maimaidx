@@ -9,8 +9,9 @@ from .maimaidx_model import *
 
 class MaimaiAPI:
     
-    MaiProberAPI = 'https://www.diving-fish.com/api/maimaidxprober'
     MaiProxyAPI = 'https://api.yuzuchan.xyz'
+    
+    MaiProberAPI = 'https://www.diving-fish.com/api/maimaidxprober'
     MaiCover = 'https://www.diving-fish.com/covers'
     MaiAliasAPI = 'https://www.yuzuchan.moe/api/maimaidx'
     QQAPI = 'http://q1.qlogo.cn/g'
@@ -19,9 +20,12 @@ class MaimaiAPI:
         """封装Api"""
         self.headers = None
         self.token = None
+        self.MaiProberProxyAPI = None
+        self.MaiAliasProxyAPI = None
 
     def load_token_proxy(self) -> None:
-        self.MaiAPI = self.MaiProberAPI if not maiconfig.maimaidxproxy else self.MaiProxyAPI
+        self.MaiProberProxyAPI = self.MaiProberAPI if not maiconfig.maimaidxproberproxy else self.MaiProxyAPI + '/maimaidxprober'
+        self.MaiAliasProxyAPI = self.MaiAliasAPI if not maiconfig.maimaidxaliasproxy else self.MaiProxyAPI + '/maimaidxaliases'
         self.token = maiconfig.maimaidxtoken
         if self.token:
             self.headers = {'developer-token': self.token}
@@ -38,7 +42,7 @@ class MaimaiAPI:
             `Dict[str, Any]` 返回结果
         """
         async with httpx.AsyncClient(timeout=30) as session:
-            res = await session.request(method, self.MaiAliasAPI + endpoint, **kwargs)
+            res = await session.request(method, self.MaiAliasProxyAPI + endpoint, **kwargs)
             if res.status_code == 200:
                 data = res.json()['content']
                 if data == {} or data == []:
@@ -67,7 +71,7 @@ class MaimaiAPI:
             `Dict[str, Any]` 返回结果
         """
         async with httpx.AsyncClient(timeout=30) as session:
-            res = await session.request(method, self.MaiAPI + endpoint, headers=self.headers, **kwargs)
+            res = await session.request(method, self.MaiProberProxyAPI + endpoint, headers=self.headers, **kwargs)
             if res.status_code == 200:
                 data = res.json()
             elif res.status_code == 400:
