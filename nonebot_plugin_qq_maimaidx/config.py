@@ -75,7 +75,7 @@ BaseRaSpp: List[float] = [7.0, 8.0, 9.6, 11.2, 12.0, 13.6, 15.2, 16.8, 20.0, 20.
 fcl: Dict[str, str] = {'fc': 'FC', 'fcp': 'FCp', 'ap': 'AP', 'app': 'APp'}
 fsl: Dict[str, str] = {'fs': 'FS', 'fsp': 'FSp', 'fsd': 'FSD', 'fdx': 'FSD', 'fsdp': 'FSDp', 'fdxp': 'FSDp', 'sync': 'Sync'}
 plate_to_version: Dict[str, str] = {
-    # '初': 'maimai',
+    '初': 'maimai',
     '真': 'maimai PLUS',
     '超': 'maimai GreeN',
     '檄': 'maimai GreeN PLUS',

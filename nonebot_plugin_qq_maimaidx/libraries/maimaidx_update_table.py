@@ -102,7 +102,7 @@ async def update_rating_table() -> str:
 async def update_plate_table() -> str:
     """更新完成表"""
     try:
-        version = list(_ for _ in plate_to_version.keys())
+        version = list(_ for _ in plate_to_version.keys()[1:])
         # version.append('霸')
         # version.append('舞')
         id_bg = Image.new('RGBA', (100, 20), (124, 129, 255, 255))
