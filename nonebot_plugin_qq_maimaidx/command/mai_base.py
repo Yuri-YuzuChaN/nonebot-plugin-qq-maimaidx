@@ -144,6 +144,8 @@ async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], messa
         await rise_score.finish('无此等级', reply_message=True)
 
     data = await rise_score_data(user_id, None, rating, score)
+    if isinstance(data, str):
+        await rise_score.finish(data)
     await send_image(rise_score, event=event, data=data)
 
 

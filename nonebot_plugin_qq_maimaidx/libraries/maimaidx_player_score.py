@@ -265,7 +265,7 @@ def get_rise_score_list(
     info: List[ChartInfo], 
     level: Optional[str] = None, 
     score: Optional[int] = None
-) -> Union[Tuple[List[RiseScore], int], List[RiseScore]]:
+) -> Tuple[List[RiseScore], int]:
     """
     随机获取加分曲目
     Params:
@@ -295,7 +295,7 @@ def get_rise_score_list(
         for index in _m.diff:
             for r in achievementList[-4:]:
                 basera, rate = computeRa(_m.ds[index], r, israte=True)
-                if basera < ra:
+                if basera <= ra:
                     continue
                 if score and basera - score < ra:
                     continue
@@ -312,7 +312,7 @@ def get_rise_score_list(
                 music.append(ss)
                 break
     if not music:
-        return music
+        return music, 0
     new = random.sample(music, musiclen if 0 < (musiclen := len(musiclist)) < 5 else 5)
     new.sort(key=lambda x: x.song_id, reverse=True)
     return new, ra
@@ -340,31 +340,37 @@ async def rise_score_data(
         dx, dx_low_score = get_rise_score_list('DX', user.charts.dx, level, score)
         
         if not sd and not dx:
-            return ''
+            return '没有推荐的铺面'
         
-        music_sd = await maiApi.query_user_post_dev(qqid=qqid, username=username, music_id=[m.song_id for m in sd])
-        for _sd in sd:
-            for music in music_sd:
-                if music.song_id != _sd.song_id:
-                    continue
-                if music.level_index != _sd.level_index:
-                    continue
-                _sd.oldra = music.ra
-                _sd.oldrate = music.rate
-                _sd.oldachievements = music.achievements
-                break
+        try:
+            music_sd = await maiApi.query_user_post_dev(qqid=qqid, username=username, music_id=[m.song_id for m in sd])
+            for _sd in sd:
+                for music in music_sd:
+                    if music.song_id != _sd.song_id:
+                        continue
+                    if music.level_index != _sd.level_index:
+                        continue
+                    _sd.oldra = music.ra
+                    _sd.oldrate = music.rate
+                    _sd.oldachievements = music.achievements
+                    break
+        except MusicNotPlayError:
+            pass
         
-        music_dx = await maiApi.query_user_post_dev(qqid=qqid, username=username, music_id=[m.song_id for m in dx])
-        for _dx in dx:
-            for music in music_dx:
-                if music.song_id != _dx.song_id:
-                    continue
-                if music.level_index != _dx.level_index:
-                    continue
-                _dx.oldra = music.ra
-                _dx.oldrate = music.rate
-                _dx.oldachievements = music.achievements
-                break
+        try:
+            music_dx = await maiApi.query_user_post_dev(qqid=qqid, username=username, music_id=[m.song_id for m in dx])
+            for _dx in dx:
+                for music in music_dx:
+                    if music.song_id != _dx.song_id:
+                        continue
+                    if music.level_index != _dx.level_index:
+                        continue
+                    _dx.oldra = music.ra
+                    _dx.oldrate = music.rate
+                    _dx.oldachievements = music.achievements
+                    break
+        except MusicNotPlayError:
+            pass
         
         lensd, lendx = len(sd), len(dx)
         

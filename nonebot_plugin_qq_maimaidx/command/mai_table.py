@@ -91,7 +91,7 @@ async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], messa
             user_id = get_user(user_id).QQID
         username = None
         args = message.extract_plain_text().lower()
-        match = re.search(r'^([真超檄橙暁晓桃櫻樱紫菫堇白雪輝辉熊華华爽舞霸星宙祭祝双])([極极将舞神者]舞?)$', args)
+        match = re.search(r'^([真超檄橙暁晓桃櫻樱紫菫堇白雪輝辉舞霸熊華华爽煌星宙祭祝双])([極极将舞神者]舞?)$', args)
         if not match:
             await plate_process.finish('输入错误，请重新确定牌子')
         ver = match.group(1)
