@@ -42,7 +42,7 @@ def insert_user(userid: str, qqid: int) -> bool:
 
 def update_user(userid: str, qqid: int) -> bool:
     try:
-        User.update(User.QQID == qqid).where(User.UserID == userid).execute()
+        User.update(QQID=qqid).where(User.UserID == userid).execute()
         return True
     except:
         return False
