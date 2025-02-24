@@ -9,7 +9,7 @@ from .maimaidx_model import *
 
 class MaimaiAPI:
     
-    MaiProxyAPI = 'https://api.yuzuchan.xyz'
+    MaiProxyAPI = 'https://proxy.yuzuchan.xyz'
     
     MaiProberAPI = 'https://www.diving-fish.com/api/maimaidxprober'
     MaiCover = 'https://www.diving-fish.com/covers'
