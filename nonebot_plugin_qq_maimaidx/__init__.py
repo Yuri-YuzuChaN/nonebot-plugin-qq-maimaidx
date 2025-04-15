@@ -2,6 +2,7 @@ import nonebot
 from nonebot.plugin import PluginMetadata, require
 
 from .command import *
+from .web import *
 
 scheduler = require('nonebot_plugin_apscheduler')
 
