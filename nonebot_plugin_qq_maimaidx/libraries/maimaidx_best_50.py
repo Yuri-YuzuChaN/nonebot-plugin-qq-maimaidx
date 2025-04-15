@@ -3,10 +3,11 @@ import traceback
 from io import BytesIO
 from typing import Tuple, Union, overload
 
+from nonebot.adapters.qq import MessageSegment
 from PIL import Image, ImageDraw
 
 from ..config import *
-from .image import DrawText, music_picture
+from .image import DrawText, image_to_bytesio, music_picture
 from .maimaidx_api_data import maiApi
 from .maimaidx_error import *
 from .maimaidx_model import ChartInfo, PlayInfoDefault, PlayInfoDev, UserInfo
@@ -76,7 +77,6 @@ class ScoreBaseImage:
     ) -> None:
         # y为第一排纵向坐标，dy为各行间距
         dy = 114
-        print(type(data[0]))
         if data and type(data[0]) == ChartInfo:
             y = 235 if best else 1085
         else:
@@ -125,7 +125,7 @@ class ScoreBaseImage:
 
 class DrawBest(ScoreBaseImage):
 
-    def __init__(self, UserInfo: UserInfo, qqId: Optional[Union[int, str]] = None, icon: Optional[str] = None) -> None:
+    def __init__(self, UserInfo: UserInfo, qqid: Optional[Union[int, str]] = None, icon: Optional[str] = None) -> None:
         super().__init__(Image.open(maimaidir / 'b50_bg.png').convert('RGBA'))
         self.userName = UserInfo.nickname
         self.plate = UserInfo.plate
@@ -133,7 +133,7 @@ class DrawBest(ScoreBaseImage):
         self.Rating = UserInfo.rating
         self.sdBest = UserInfo.charts.sd
         self.dxBest = UserInfo.charts.dx
-        self.qqId = qqId
+        self.qqid = qqid
         self.icon = icon
 
     def _findRaPic(self) -> str:
@@ -185,9 +185,9 @@ class DrawBest(ScoreBaseImage):
         self._im.alpha_composite(plate, (300, 60))
         icon = Image.open(maimaidir / 'UI_Icon_309503.png').resize((120, 120))
         self._im.alpha_composite(icon, (305, 65))
-        if self.qqId or self.icon:
+        if self.qqid or self.icon:
             try:
-                qqLogo = Image.open(BytesIO(await maiApi.qqlogo(qqid=self.qqId, icon=icon)))
+                qqLogo = Image.open(BytesIO(await maiApi.qqlogo(qqid=self.qqid, icon=icon)))
                 self._im.alpha_composite(qqLogo.convert('RGBA').resize((120, 120)), (305, 65))
             except Exception:
                 pass
@@ -223,11 +223,12 @@ class DrawBest(ScoreBaseImage):
 
 def dxScore(dx: int) -> int:
     """
+    获取DX评分星星数量
+    
     Params:
         `dx`: dx百分比
-    
     Returns:
-        返回星星数量
+        `int` 返回星星数量
     """
     if dx <= 85:
         result = 0
@@ -244,7 +245,7 @@ def dxScore(dx: int) -> int:
     return result
 
 
-def getCharWidth(o) -> int:
+def getCharWidth(o: int) -> int:
     widths = [
         (126, 1), (159, 0), (687, 1), (710, 0), (711, 1), (727, 0), (733, 1), (879, 0), (1154, 1), (1161, 0),
         (4347, 1), (4447, 2), (7467, 1), (7521, 0), (8369, 1), (8426, 0), (9000, 1), (9002, 2), (11021, 1),
@@ -279,32 +280,35 @@ def changeColumnWidth(s: str, len: int) -> str:
 @overload
 def computeRa(ds: float, achievement: float) -> int:
     """
+    计算底分
+    
     Params:
         `ds`: 定数
         `achievement`: 成绩
-        
     Returns:
         返回底分
     """
 @overload
 def computeRa(ds: float, achievement: float, *, onlyrate: bool = False) -> str:
     """
+    计算底分
+    
     Params:
         `ds`: 定数
         `achievement`: 成绩
         `onlyrate`: 是否只返回评价
-    
     Returns:
         返回评价
     """
 @overload
 def computeRa(ds: float, achievement: float, *, israte: bool = False) -> Tuple[int, str]:
     """
+    计算底分
+    
     Params:
         `ds`: 定数
         `achievement`: 成绩
         `israte`: 是否返回所有数据
-    
     Returns:
         (底分, 评价)
     """
@@ -372,14 +376,25 @@ async def generate(
     qqid: Optional[int] = None, 
     username: Optional[str] = None, 
     icon: Optional[str] = None
-) -> Union[str, Image.Image]:
+) -> Union[str, MessageSegment]:
+    """
+    生成b50
+    
+    Params:
+        `qqid`: QQ号
+        `username`: 用户名
+        `icon`: 头像
+    Returns:
+        `Union[MessageSegment, str]`
+    """
     try:
         if username:
             qqid = None
         userinfo = await maiApi.query_user_b50(qqid=qqid, username=username)
         draw_best = DrawBest(userinfo, qqid, icon)
         
-        msg = await draw_best.draw()
+        im = await draw_best.draw()
+        msg = MessageSegment.file_image(image_to_bytesio(im))
     except UserNotFoundError as e:
         msg = str(e)
     except UserNotExistsError as e:

@@ -5,10 +5,8 @@ from typing import Any, Union
 
 import aiofiles
 
-from ..config import TempPicturePath
 
-
-def hash(qq: int):
+def qqhash(qq: int):
     days = int(time.strftime("%d", time.localtime(time.time()))) + 31 * int(
         time.strftime("%m", time.localtime(time.time()))) + 77
     return (days * qq) >> 8
@@ -24,11 +22,3 @@ async def writefile(file: Path, data: Any) -> bool:
     async with aiofiles.open(file, 'w', encoding='utf-8') as f:
         await f.write(json.dumps(data, ensure_ascii=False, indent=4))
     return True
-
-
-def delete_temp() -> None:
-    for path in TempPicturePath.iterdir():
-        try:
-            path.unlink()
-        except:
-            pass

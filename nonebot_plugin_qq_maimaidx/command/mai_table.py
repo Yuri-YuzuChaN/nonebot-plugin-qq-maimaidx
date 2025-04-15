@@ -12,7 +12,6 @@ from nonebot.params import CommandArg, Depends
 from ..libraries.maimaidx_database import get_user
 from ..libraries.maimaidx_music_info import *
 from ..libraries.maimaidx_player_score import *
-from ..message import send_image
 
 rating_table            = on_command('定数表')
 rating_table_pf         = on_command('完成表')
@@ -21,7 +20,9 @@ level_process           = on_command('等级进度')
 level_achievement_list  = on_command('分数列表')
 
 
-def get_qqid(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent, DirectMessageCreateEvent]) -> str:
+def get_qqid(
+    event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent, DirectMessageCreateEvent]
+) -> str:
     if isinstance(event, GroupAtMessageCreateEvent):
         return event.author.member_openid
     else:
@@ -29,14 +30,17 @@ def get_qqid(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent, Direc
 
 
 @rating_table.handle()
-async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], message: Message = CommandArg()):
+async def _(
+    event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], 
+    message: Message = CommandArg()
+):
     args = message.extract_plain_text().strip()
     if args in levelList[:5]:
         await rating_table.send('只支持查询lv6-15的定数表')
     elif args in levelList[5:]:
         path = ratingdir / f'{args}.png'
-        im = await draw_rating(args, path)
-        await send_image(rating_table, event=event, data=im)
+        pic = draw_rating(args, path)
+        await rating_table.send(pic)
     else:
         await rating_table.send('无法识别的定数')
 
@@ -48,7 +52,7 @@ async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], args:
             user_id = get_user(user_id).QQID
         args: str = args.extract_plain_text().strip()
         rating = re.search(r'^([0-9]+\+?)(ap|app|fc|fcp|fs|fsp|fdx|fdxp)?', args, re.IGNORECASE)
-        plate = re.search(r'^([真超檄橙暁晓桃櫻樱紫菫堇白雪輝辉熊華华爽煌舞霸星宙祭祝双宴])([極极将舞神者]舞?)$', args)
+        plate = re.search(r'^([真超檄橙暁晓桃櫻樱紫菫堇白雪輝辉舞霸熊華华爽煌星宙祭祝双宴])([極极将舞神者]舞?)$', args)
         if rating:
             ra = rating.group(1)
             plan = rating.group(2)
@@ -56,12 +60,6 @@ async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], args:
                 await rating_table_pf.send('只支持查询lv6-15的完成表')
             elif ra in levelList[5:]:
                 pic = await draw_rating_table(user_id, ra, True if plan and plan.lower() in combo_rank + sync_rank_p else False)
-                if isinstance(pic, Image.Image):
-                    await send_image(
-                        rating_table_pf, 
-                        event=event, 
-                        data=pic.resize((int(pic.size[0] * 0.8), int(pic.size[1] * 0.8)))
-                    )
                 await rating_table_pf.send(pic)
             else:
                 await rating_table_pf.send('无法识别的表格')
@@ -75,8 +73,6 @@ async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], args:
             if f'{ver}{plan}' == '真将':
                 await rating_table_pf.finish('真系没有真将哦')
             pic = await draw_plate_table(user_id, ver, plan)
-            if isinstance(pic, Image.Image):
-                await send_image(rating_table_pf, event=event, data=pic)
             await rating_table_pf.send(pic)
         else:
             await rating_table_pf.send('无法识别的表格')
@@ -91,7 +87,7 @@ async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], messa
             user_id = get_user(user_id).QQID
         username = None
         args = message.extract_plain_text().lower()
-        match = re.search(r'^([真超檄橙暁晓桃櫻樱紫菫堇白雪輝辉舞霸熊華华爽煌星宙祭祝双])([極极将舞神者]舞?)$', args)
+        match = re.search(r'^([真超檄橙暁晓桃櫻樱紫菫堇白雪輝辉舞霸熊華华爽煌星宙祭祝双宴])([極极将舞神者]舞?)$', args)
         if not match:
             await plate_process.finish('输入错误，请重新确定牌子')
         ver = match.group(1)
@@ -100,8 +96,6 @@ async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], messa
             await plate_process.finish('真系没有真将哦')
 
         data = await player_plate_data(user_id, username, ver, plan)
-        if isinstance(data, Image.Image):
-            await send_image(plate_process, event=event, data=data)
         await plate_process.send(data)
     except UserNotBindError as e:
         await plate_process.send(str(e))
@@ -143,8 +137,6 @@ async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], messa
             category = 'default'
         
         data = await level_process_data(user_id, username, level, plan, category, int(page) if page else 1)
-        if isinstance(data, Image.Image):
-            await send_image(level_process, event=event, data=data)
         await level_process.send(data)
     except UserNotBindError as e:
         await level_process.send(str(e))
@@ -172,8 +164,6 @@ async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], messa
                 await level_achievement_list.finish('无此等级')
 
         data = await level_achievement_list_data(user_id, username, rating, int(page) if page else 1)
-        if isinstance(data, Image.Image):
-            await send_image(level_achievement_list, event=event, data=data)
         await level_achievement_list.finish(data)
     except UserNotBindError as e:
         await level_achievement_list.send(str(e))

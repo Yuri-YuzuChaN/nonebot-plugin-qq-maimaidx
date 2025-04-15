@@ -7,18 +7,20 @@ from nonebot.adapters.qq import (
     DirectMessageCreateEvent,
     GroupAtMessageCreateEvent,
     Message,
+    MessageEvent,
     MessageSegment,
 )
 from nonebot.params import CommandArg, Depends
+from PIL import Image
 
 from ..config import Root, levelList, log, maiconfig
-from ..libraries.image import music_picture
+from ..libraries.image import image_to_bytesio, music_picture
 from ..libraries.maimaidx_database import get_user, insert_user, update_user
 from ..libraries.maimaidx_error import UserNotBindError
 from ..libraries.maimaidx_music import mai
 from ..libraries.maimaidx_music_info import draw_music_info
 from ..libraries.maimaidx_player_score import rating_ranking_data, rise_score_data
-from ..message import image, send_image
+from ..libraries.tool import qqhash
 
 bind            = on_command('绑定')
 guildid         = on_command('频道ID')
@@ -55,14 +57,19 @@ async def _(event: GroupAtMessageCreateEvent, message: Message = CommandArg()):
 async def _(event: Union[AtMessageCreateEvent, DirectMessageCreateEvent]):
     user_id = event.author.id
     if isinstance(event, AtMessageCreateEvent):
-        await guildid.send(MessageSegment.mention_user(user_id) + f'您的频道ID为：{user_id}\n现在可前往查分器官网进行频道绑定')
+        await guildid.send(
+            MessageSegment.mention_user(user_id) + 
+            f'您的频道ID为：{user_id}\n现在可前往查分器官网进行频道绑定'
+        )
     else:
         await guildid.send(f'您的频道ID为：{user_id}\n现在可前往查分器官网进行频道绑定')
 
 
 @help.handle()
-async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent]):
-    await send_image(help, event=event, data=Root / 'maimaidxhelp.png')
+async def _(event: MessageEvent):
+    await help.send(
+        MessageSegment.file_image(image_to_bytesio(Image.open(Root / 'maimaidxhelp.png')))
+    )
 
 
 @mai_today.handle()
@@ -70,32 +77,48 @@ async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], user_
     try:
         if isinstance(event, GroupAtMessageCreateEvent):
             user_id = get_user(user_id).QQID
-        wm_list = ['拼机', '推分', '越级', '下埋', '夜勤', '练底力', '练手法', '打旧框', '干饭', '抓绝赞', '收歌']
-        h = hash(int(user_id))
-        rp = h % 100
-        wm_value = []
-        for i in range(11):
-            wm_value.append(h & 3)
-            h >>= 2
-        msg = f'\n今日人品值：{rp}\n'
-        for i in range(11):
-            if wm_value[i] == 3:
-                msg += f'宜 {wm_list[i]}\n'
-            elif wm_value[i] == 0:
-                msg += f'忌 {wm_list[i]}\n'
-        music = mai.total_list[h % len(mai.total_list)]
-        ds = '/'.join([str(_) for _ in music.ds])
-        msg += f'{maiconfig.botName} Bot提醒您：打机时不要大力拍打或滑动哦\n今日推荐歌曲：'
-        msg += f'ID.{music.id} - {music.title}'
-        msg += await image(event, music_picture(music.id))
-        msg += ds
-        await send_image(mai_today, msg)
     except UserNotBindError as e:
-        await mai_today.send(str(e))
+        await mai_today.finish(str(e))
+    wm_list = [
+        '拼机', 
+        '推分', 
+        '越级', 
+        '下埋', 
+        '夜勤', 
+        '练底力', 
+        '练手法', 
+        '打旧框', 
+        '干饭', 
+        '抓绝赞', 
+        '收歌'
+    ]
+    h = qqhash(int(user_id))
+    rp = h % 100
+    wm_value = []
+    for i in range(11):
+        wm_value.append(h & 3)
+        h >>= 2
+    msg = f'\n今日人品值：{rp}\n'
+    for i in range(11):
+        if wm_value[i] == 3:
+            msg += f'宜 {wm_list[i]}\n'
+        elif wm_value[i] == 0:
+            msg += f'忌 {wm_list[i]}\n'
+    music = mai.total_list[h % len(mai.total_list)]
+    ds = '/'.join([str(_) for _ in music.ds])
+    msg += f'{maiconfig.botName} Bot提醒您：打机时不要大力拍打或滑动哦\n今日推荐歌曲：'
+    msg += f'ID.{music.id} - {music.title}'
+    msg += MessageSegment.file_image(music_picture(music.id))
+    msg += ds
+    await mai_today.send(msg)
         
         
 @random_song.handle()
-async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], message: Message = CommandArg(), user_id: str = Depends(get_qqid)):
+async def _(
+    event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], 
+    message: Message = CommandArg(), 
+    user_id: str = Depends(get_qqid)
+):
     try:
         if isinstance(event, GroupAtMessageCreateEvent):
             user_id = get_user(user_id).QQID
@@ -116,15 +139,24 @@ async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], messa
     if match.group(2) == '':
         music_data = mai.total_list.filter(level=level, type=tp)
     else:
-        music_data = mai.total_list.filter(level=level, diff=['绿黄红紫白'.index(match.group(2))], type=tp)
+        music_data = mai.total_list.filter(
+            level=level, 
+            diff=['绿黄红紫白'.index(match.group(2))], 
+            type=tp
+        )
     if len(music_data) == 0:
-        await random_song.finish('没有这样的乐曲哦。')
-    pic = await draw_music_info(music_data.random(), user_id)
-    await send_image(random_song, event=event, data=pic)
+        msg = '没有这样的乐曲哦。'
+    else:
+        msg = await draw_music_info(music_data.random(), user_id)
+    await random_song.send(msg)
 
 
 @rise_score.handle()
-async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], message: Message = CommandArg(), user_id: str = Depends(get_qqid)):
+async def _(
+    event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], 
+    message: Message = CommandArg(), 
+    user_id: str = Depends(get_qqid)
+):
     try:
         if isinstance(event, GroupAtMessageCreateEvent):
             user_id = get_user(user_id).QQID
@@ -144,13 +176,14 @@ async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], messa
         await rise_score.finish('无此等级', reply_message=True)
 
     data = await rise_score_data(user_id, None, rating, score)
-    if isinstance(data, str):
-        await rise_score.finish(data)
-    await send_image(rise_score, event=event, data=data)
+    await rise_score.send(data)
 
 
 @rating_ranking.handle()
-async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], message: Message = CommandArg()):
+async def _(
+    event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], 
+    message: Message = CommandArg()
+):
     name = ''
     page = 1
     args = message.extract_plain_text().strip()
@@ -159,9 +192,9 @@ async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], messa
     else:
         name = args.lower()
     pic = await rating_ranking_data(name, page)
-    await send_image(rating_ranking, event=event, data=pic)
+    await rating_ranking.send(pic)
     
 
-async def data_update_daily():
+async def update_daily():
     await mai.get_music()
     log.info('maimaiDX数据更新完毕')

@@ -209,6 +209,7 @@ class MaimaiAPI:
     async def rating_ranking(self) -> List[UserRanking]:
         """
         获取查分器排行榜
+        
         Returns:
             `List[UserRanking]` 按`ra`从高到低排序后的查分器排行模型列表
         """
@@ -242,7 +243,14 @@ class MaimaiAPI:
         return r
 
     async def get_songs_alias(self, song_id: int) -> Alias:
-        """使用曲目 `id` 查询别名"""
+        """
+        使用曲目 `id` 查询别名
+        
+        Params:
+            `song_id`: 曲目 `ID`
+        Returns:
+            `Alias`
+        """
         result = await self._requestalias('GET', '/getsongsalias', params={'song_id': song_id})
         return Alias.model_validate(result)
 

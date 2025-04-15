@@ -34,12 +34,10 @@ maimaidir: Path = static / 'mai' / 'pic'
 coverdir: Path = static / 'mai' / 'cover'
 ratingdir: Path = static / 'mai' / 'rating'
 platedir: Path = static / 'mai' / 'plate'
-TempPicturePath: Path = static / 'temp'
-if not TempPicturePath.exists():
-    TempPicturePath.mkdir()
 
 # 字体路径
 SIYUAN: Path =  static / 'ResourceHanRoundedCN-Bold.ttf'
+SHANGGUMONO: Path = static / 'ShangguMonoSC-Regular.otf'
 TBFONT: Path = static / 'Torus SemiBold.otf'
 
 
@@ -101,7 +99,8 @@ plate_to_version: Dict[str, str] = {
     '星': 'maimai でらっくす UNiVERSE PLUS',
     '祭': 'maimai でらっくす FESTiVAL',
     '祝': 'maimai でらっくす FESTiVAL PLUS',
-    '双': 'maimai でらっくす BUDDiES'
+    '双': 'maimai でらっくす BUDDiES',
+    '宴': 'maimai でらっくす BUDDiES PLUS'
 }
 platecn = {
     '晓': '暁',

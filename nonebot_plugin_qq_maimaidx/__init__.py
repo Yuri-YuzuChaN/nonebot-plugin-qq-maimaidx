@@ -1,9 +1,7 @@
-from nonebot import require
-from nonebot.plugin import PluginMetadata
+import nonebot
+from nonebot.plugin import PluginMetadata, require
 
 from .command import *
-from .libraries.tool import delete_temp
-from .web import *
 
 scheduler = require('nonebot_plugin_apscheduler')
 
@@ -43,5 +41,4 @@ async def get_music():
     log.success('maimai数据获取完成')
 
 
-scheduler.add_job(data_update_daily, 'cron', hour=4)
-scheduler.add_job(delete_temp, 'cron', hour=4)
+scheduler.add_job(update_daily, 'cron', hour=4)

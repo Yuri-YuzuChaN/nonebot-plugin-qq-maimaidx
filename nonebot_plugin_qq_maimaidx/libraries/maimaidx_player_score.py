@@ -4,13 +4,14 @@ import traceback
 from typing import Callable, Tuple
 
 import pyecharts.options as opts
+from nonebot.adapters.qq import MessageSegment
 from PIL import Image
 from pyecharts.charts import Pie
 from pyecharts.render import make_snapshot
 from snapshot_phantomjs import snapshot
 
 from ..config import *
-from .image import music_picture, text_to_image, tricolor_gradient
+from .image import *
 from .maimaidx_api_data import *
 from .maimaidx_best_50 import ScoreBaseImage, changeColumnWidth, coloumWidth, computeRa
 from .maimaidx_model import PlanInfo, PlayInfoDefault, PlayInfoDev, RaMusic
@@ -26,7 +27,7 @@ Filter = Tuple[
 Condition = Callable[[PlayInfoDefault], bool]
 
 
-async def music_global_data(music: Music, level_index: int) -> Image.Image:
+async def music_global_data(music: Music, level_index: int) -> MessageSegment:
     """
     绘制曲目游玩详情
     
@@ -34,7 +35,7 @@ async def music_global_data(music: Music, level_index: int) -> Image.Image:
         `music`: :class:Music
         `level_index`: 难度
     Returns:
-        `Image.Image`
+        `MessageSegment`
     """
     stats = music.stats[level_index]
     fc_data_pair = [list(z) for z in zip([c.upper() if c else 'Not FC' for c in [''] + comboRank], stats.fc_dist)]
@@ -88,7 +89,7 @@ async def music_global_data(music: Music, level_index: int) -> Image.Image:
     pie.render(str(static / 'temp_pie.html'))
     make_snapshot(snapshot, str(static / 'temp_pie.html'), str(static / 'temp_pie.png'))
 
-    return Image.open(static / 'temp_pie.png')
+    return MessageSegment.file_image(static / 'temp_pie.png')
 
 
 class DrawScore(ScoreBaseImage):
@@ -105,6 +106,10 @@ class DrawScore(ScoreBaseImage):
     def whilepic(self, data: List[RaMusic], y: int = 200):
         """
         循环绘制谱面
+        
+        Params:
+            `data`: `谱面数据`
+            `y`: `Y轴偏移`
         """
         dy = 65
         x = 0
@@ -122,6 +127,11 @@ class DrawScore(ScoreBaseImage):
     def whilerisepic(self, data: List[RiseScore], low_score: int, isdx: bool):
         """
         循环绘制上分推荐数据
+        
+        Params:
+            `data`: `上分数据`
+            `low_score`: `最低分`
+            `isdx`: `是否DX版本`
         """
         y = 120
         for index, _d in enumerate(data):
@@ -148,7 +158,11 @@ class DrawScore(ScoreBaseImage):
             self._tb.draw(x + 370, y + 71, 25, f'{_d.achievements:.4f}%', self.t_color[_d.level_index], anchor='mm')
             self._tb.draw(x + 415, y + 96, 17, f'Ra: {_d.ra}', self.t_color[_d.level_index], anchor='mm')
             self._tb.draw(x + 315, y + 124, 18, f'ds:{_d.ds}', self.id_color[_d.level_index], anchor='lm')
-            self._tb.draw(x + 390, y + 124, 18, f'Ra +{_d.ra - low_score}', self.id_color[_d.level_index], 'lm')
+            if _d.oldra > low_score:
+                new_ra = _d.ra - _d.oldra
+            else:
+                new_ra = _d.ra - low_score
+            self._tb.draw(x + 390, y + 124, 18, f'Ra +{new_ra}', self.id_color[_d.level_index], 'lm')
          
     def draw_rise(self, sd: List[RiseScore], sd_score: int, dx: List[RiseScore], dx_score: int) -> Image.Image:
         """
@@ -156,7 +170,11 @@ class DrawScore(ScoreBaseImage):
         
         Params:
             `sd`: `旧版本谱面`
+            `sd_score`: `旧版本最低分`
             `sd`: `新版本谱面`
+            `dx_score`: `新版本最低分`
+        Returns:
+            `Image.Image`
         """
         title_bg = self.title_bg.copy().resize((273, 80))
         self._im.alpha_composite(title_bg, (314, 30))
@@ -174,28 +192,40 @@ class DrawScore(ScoreBaseImage):
     def draw_plan(
         self,
         completed: Union[List[PlayInfoDefault], List[PlayInfoDev]],
-        clen: int,
+        completed_y: int,
         unfinished: Union[List[PlayInfoDefault], List[PlayInfoDev]],
-        ulen: int,
+        unfinished_y: int,
         notstarted: List[RaMusic],
-        plan: str
+        plan: str,
+        completed_len: int,
     ) -> Image.Image:
         """
         绘制进度表
+        
+        Params:
+            `completed`: `已完成谱面`
+            `completed_y`: `已完成谱面高度`
+            `unfinished`: `未完成谱面`
+            `unfinished_y`: `未完成谱面高度`
+            `notstarted`: `未游玩谱面`
+            `plan`: `目标`
+            `completed_len`: `已完成谱面数量`
+        Returns:
+            `Image.Image`
         """
         max = len(completed + unfinished + notstarted)
 
         self._im.alpha_composite(self.title_lengthen_bg, (475, 30))
-        self._im.alpha_composite(self.title_lengthen_bg, (475, 30 + clen))
-        self._im.alpha_composite(self.title_lengthen_bg, (475, 30 + clen + ulen))
+        self._im.alpha_composite(self.title_lengthen_bg, (475, 30 + completed_y))
+        self._im.alpha_composite(self.title_lengthen_bg, (475, 30 + completed_y + unfinished_y))
         
         self._sy.draw(700, 77, 22, f'已完成谱面「{len(completed)}」个', self.text_color, 'mm')
-        self._sy.draw(700, 77 + clen, 22, f'未完成谱面「{len(unfinished)}」个', self.text_color, 'mm')
-        self._sy.draw(700, 77 + clen + ulen, 22, f'未游玩谱面「{len(notstarted)}」个', self.text_color, 'mm')
+        self._sy.draw(700, 77 + completed_y, 22, f'未完成谱面「{len(unfinished)}」个', self.text_color, 'mm')
+        self._sy.draw(700, 77 + completed_y + unfinished_y, 22, f'未游玩谱面「{len(notstarted)}」个', self.text_color, 'mm')
         
-        self.whiledraw(completed[:30], True, 140)
-        self.whiledraw(unfinished[:30], True, 140 + clen)
-        self.whilepic(notstarted[:100], 140 + clen + ulen)
+        self.whiledraw(completed[:completed_len], True, 140)
+        self.whiledraw(unfinished[:30], True, 140 + completed_y)
+        self.whilepic(notstarted[:100], 140 + completed_y + unfinished_y)
 
         self._im.alpha_composite(self.design_bg, (200, self._im.size[1] - 113))
         pagemsg = f'共计「{max}」个谱面，剩余「{len(unfinished + notstarted)}」个谱面未完成「{plan.upper()}」'
@@ -211,6 +241,14 @@ class DrawScore(ScoreBaseImage):
     ) -> Image.Image:
         """
         绘制指定进度表
+        
+        Params:
+            `category`: `类别`
+            `data`: `数据`
+            `page`: `页数`
+            `end_page`: `总页数`
+        Returns:
+            `Image.Image`
         """
         lendata = len(data)
         newdata = data[(page - 1) * 80: page * 80]
@@ -241,6 +279,14 @@ class DrawScore(ScoreBaseImage):
     ) -> Image.Image:
         """
         绘制分数列表
+        
+        Params:
+            `rating`: `定数`
+            `data`: `数据`
+            `page`: `页数`
+            `end_page`: `总页数`
+        Returns:
+            `Image.Image`
         """
         lendata = len(data)
         newdata = data[(page - 1) * 80: page * 80]
@@ -261,6 +307,7 @@ class DrawScore(ScoreBaseImage):
 
 
 def get_rise_score_list(
+    old_records: Dict[int, Dict[str, Union[int, float]]],
     type: str, 
     info: List[ChartInfo], 
     level: Optional[str] = None, 
@@ -268,6 +315,7 @@ def get_rise_score_list(
 ) -> Tuple[List[RiseScore], int]:
     """
     随机获取加分曲目
+    
     Params:
         `type`: 版本
         `info`: 游玩成绩列表
@@ -285,12 +333,12 @@ def get_rise_score_list(
         ss_ds = round((ra + score) / 20.8, 1)
     sssp_ds = round(ra / 22.4, 1)
     ds = (sssp_ds + 0.1, ss_ds + 0.1)
-    version = list(plate_to_version.values())[-1] if type == 'DX' else list(plate_to_version.values())[:-1]
+    version = list(plate_to_version.values())[-2] if type == 'DX' else list(plate_to_version.values())[:-2]
     musiclist = mai.total_list.filter(level=level, ds=ds, version=version)
     for _m in musiclist:
-        if int(_m.id) in ignore:
+        if (song_id := int(_m.id)) in ignore:
             continue
-        if int(_m.id) >= 100000:
+        if song_id >= 100000:
             continue
         for index in _m.diff:
             for r in achievementList[-4:]:
@@ -299,16 +347,34 @@ def get_rise_score_list(
                     continue
                 if score and basera - score < ra:
                     continue
-                ss = RiseScore(
-                    song_id=_m.id,
-                    title=_m.title,
-                    type=_m.type,
-                    level_index=index,
-                    ds=_m.ds[index],
-                    ra=basera,
-                    rate=rate,
-                    achievements=r
-                )
+                if song_id in old_records and old_records[song_id]['level_index'] == index:
+                    oldra, oldrate = computeRa(_m.ds[index], old_records[song_id]['achievements'], israte=True)
+                    if oldra >= basera:
+                        continue
+                    ss = RiseScore(
+                        song_id=song_id,
+                        title=_m.title,
+                        type=_m.type,
+                        level_index=index,
+                        ds=_m.ds[index],
+                        ra=basera,
+                        rate=rate,
+                        achievements=r,
+                        oldra=oldra,
+                        oldrate=oldrate,
+                        oldachievements=old_records[song_id]['achievements']
+                    )
+                else:
+                    ss = RiseScore(
+                        song_id=song_id,
+                        title=_m.title,
+                        type=_m.type,
+                        level_index=index,
+                        ds=_m.ds[index],
+                        ra=basera,
+                        rate=rate,
+                        achievements=r
+                    )
                 music.append(ss)
                 break
     if not music:
@@ -323,7 +389,7 @@ async def rise_score_data(
     username: Optional[str] = None, 
     level: Optional[str] = None, 
     score: Optional[int] = None
-) -> Union[Image.Image, str]:
+) -> Union[MessageSegment, str]:
     """
     上分数据
     
@@ -332,45 +398,24 @@ async def rise_score_data(
         `username`: 查分器用户名
         `level`: 定数
         `score`: 分数
+    Returns:
+        `Union[Image.Image, str]`
     """
     try:
         user = await maiApi.query_user_b50(qqid=qqid, username=username)
+        records = await maiApi.query_user_plate(qqid=qqid, username=username, version=list(plate_to_version.values()))
+        old_records: Dict[int, Dict[str, Union[int, float]]] = {
+            m.song_id: {
+                'level_index': m.level_index,
+                'achievements': m.achievements
+            } for m in records
+        }
         
-        sd, sd_low_score = get_rise_score_list('SD', user.charts.sd, level, score)
-        dx, dx_low_score = get_rise_score_list('DX', user.charts.dx, level, score)
+        sd, sd_low_score = get_rise_score_list(old_records, 'SD', user.charts.sd, level, score)
+        dx, dx_low_score = get_rise_score_list(old_records, 'DX', user.charts.dx, level, score)
         
         if not sd and not dx:
             return '没有推荐的铺面'
-        
-        try:
-            music_sd = await maiApi.query_user_post_dev(qqid=qqid, username=username, music_id=[m.song_id for m in sd])
-            for _sd in sd:
-                for music in music_sd:
-                    if music.song_id != _sd.song_id:
-                        continue
-                    if music.level_index != _sd.level_index:
-                        continue
-                    _sd.oldra = music.ra
-                    _sd.oldrate = music.rate
-                    _sd.oldachievements = music.achievements
-                    break
-        except MusicNotPlayError:
-            pass
-        
-        try:
-            music_dx = await maiApi.query_user_post_dev(qqid=qqid, username=username, music_id=[m.song_id for m in dx])
-            for _dx in dx:
-                for music in music_dx:
-                    if music.song_id != _dx.song_id:
-                        continue
-                    if music.level_index != _dx.level_index:
-                        continue
-                    _dx.oldra = music.ra
-                    _dx.oldrate = music.rate
-                    _dx.oldachievements = music.achievements
-                    break
-        except MusicNotPlayError:
-            pass
         
         lensd, lendx = len(sd), len(dx)
         
@@ -381,12 +426,9 @@ async def rise_score_data(
         ds = DrawScore(image)
         im = ds.draw_rise(sd, sd_low_score, dx, dx_low_score)
         
-        msg = im.crop((200, 0, 1200, height))
-    except UserNotFoundError as e:
-        msg = str(e)
-    except UserNotExistsError as e:
-        msg = str(e)
-    except UserDisabledQueryError as e:
+        pic = im.crop((200, 0, 1200, height))
+        msg = MessageSegment.file_image(image_to_bytesio(pic))
+    except (UserNotFoundError, UserNotExistsError, UserDisabledQueryError) as e:
         msg = str(e)
     except Exception as e:
         log.error(traceback.format_exc())
@@ -400,7 +442,16 @@ def plate_message(
     plan: str, 
     music_list: List[PlayInfoDefault], 
     played: List[Tuple[int, int]]
-) -> Union[Image.Image, str]:
+) -> Union[MessageSegment, str]:
+    """
+    Params:
+        `result`: 结果
+        `plan`: 目标
+        `music_list`: 谱面列表
+        `played`: 已游玩谱面
+    Returns:
+        `Union[MessageSegment, str]`
+    """
     for n, m in enumerate(music_list):
         self_record = ''
         if (m.song_id, m.level_index) in played:
@@ -410,13 +461,18 @@ def plate_message(
                 self_record = m.fc
             if plan in '舞舞':
                 self_record = m.fs
-        result += f'No.{n + 1:02d}「{m.song_id}」「{diffs[m.level_index]}」「{m.ds}」 {m.title}  {self_record}\n'
+        result += f'No.{n + 1:02d} {f"「{m.song_id}」":>7} {f"「{diffs[m.level_index]}」":>11} 「{m.ds}」 {m.title}  {self_record}\n'
     if len(music_list) > 10:
-        result = text_to_image(result.strip())
+        result = MessageSegment.file_image(image_to_bytesio(text_to_image(result.strip())))
     return result
 
 
-async def player_plate_data(qqid: int, username: str, version: str, plan: str) -> Union[Image.Image, str]:
+async def player_plate_data(
+    qqid: int, 
+    username: str, 
+    version: str, 
+    plan: str
+) -> Union[MessageSegment, str]:
     """
     查看牌子进度
     
@@ -426,11 +482,14 @@ async def player_plate_data(qqid: int, username: str, version: str, plan: str) -
         `ver`: 版本
         `plan`: 目标
     Returns:
-        `str`
+        `Union[MessageSegment, str]`
     """
     if version in platecn:
         version = platecn[version]
-    if version in ['霸', '舞']:
+    if version == '真':
+        ver = [plate_to_version['真']] + [plate_to_version['初']]
+        _ver = version
+    elif version in ['霸', '舞']:
         ver = list(set(_v for _v in list(plate_to_version.values())[:-9]))
         _ver = '舞'
     elif version in ['熊', '华', '華']:
@@ -454,9 +513,7 @@ async def player_plate_data(qqid: int, username: str, version: str, plan: str) -
     
     try:
         verlist = await maiApi.query_user_plate(qqid=qqid, username=username, version=ver)
-    except UserNotFoundError as e:
-        return str(e)
-    except UserDisabledQueryError as e:
+    except (UserNotFoundError, UserNotExistsError, UserDisabledQueryError) as e:
         return str(e)
     
     if plan in ['将', '者']:
@@ -520,7 +577,7 @@ async def player_plate_data(qqid: int, username: str, version: str, plan: str) -
     basic, advanced, expert, master, re_master = unfinished_model_list
     
     ramain = basic + advanced + expert + master + re_master
-    ramain.sort(key=lambda x: x.song_id)
+    ramain.sort(key=lambda x: x.ds, reverse=True)
     difficult = [_m for _m in ramain if _m.ds > 13.6]
 
     appellation = username if username else '您'
@@ -537,21 +594,13 @@ async def player_plate_data(qqid: int, username: str, version: str, plan: str) -
     if len(difficult) > 0:
         if len(difficult) < 60:
             result += '剩余定数大于13.6的曲目：\n'
-            msg = plate_message(result, plan, difficult, played)
-            if isinstance(msg, Image.Image):
-                result = msg
-            else:
-                result += msg
+            result = plate_message(result, plan, difficult, played)
         else:
             result += f'还有{len(difficult)}首大于13.6定数的曲目，加油推分捏！\n'
     elif len(ramain) > 0:
         if len(ramain) < 60:
             result += '剩余曲目：\n'
-            msg = plate_message(result, plan, ramain, played)
-            if isinstance(msg, Image.Image):
-                result = msg
-            else:
-                result += msg
+            result = plate_message(result, plan, ramain, played)
         else:
             result += '已经没有定数大于13.6的曲目了，加油清谱捏！\n'
     else:
@@ -578,7 +627,7 @@ async def level_process_data(
     plan: str, 
     category: str = 'default', 
     page: int = 1
-) -> Union[str, Image.Image]:
+) -> Union[MessageSegment, str]:
     """
     查看谱面等级进度
 
@@ -588,7 +637,7 @@ async def level_process_data(
         `level`: 定数
         `plan`: 评价等级
     Returns:
-        `Image.Image | str`
+        `Union[MessageSegment, str]`
     """
     try:
         if maiApi.token:
@@ -661,18 +710,16 @@ async def level_process_data(
         notplayed.sort(key=lambda x: x.ds, reverse=True)
 
         if category == 'default':
-            if len(unfinished) == 0 and len(notplayed) == 0:
-                clen = len(completed[:60])
-            else:
-                clen = len(completed[:30])
-            completed_Y = (clen // 5 + (0 if clen % 5 == 0 else 1)) * 109 + 140
+            completed_len = 60 if len(unfinished) == 0 and len(notplayed) == 0 else 30
+            clen = len(completed[:completed_len])
+            completed_y = (clen // 5 + (0 if clen % 5 == 0 else 1)) * 109 + 140
             ulen = len(unfinished[:30])
-            unfinished_Y = (ulen // 5 + (0 if ulen % 5 == 0 else 1)) * 109 + 140
+            unfinished_y = (ulen // 5 + (0 if ulen % 5 == 0 else 1)) * 109 + 140
             nlen = len(notplayed[:100])
-            notstarted_Y = (nlen // 20 + (0 if nlen % 20 == 0 else 1)) * 65 + 140
-            image = tricolor_gradient(1400, 150 + completed_Y + unfinished_Y + notstarted_Y)
+            notstarted_y = (nlen // 20 + (0 if nlen % 20 == 0 else 1)) * 65 + 140
+            image = tricolor_gradient(1400, 150 + completed_y + unfinished_y + notstarted_y)
             dp = DrawScore(image)
-            im = dp.draw_plan(completed, completed_Y, unfinished, unfinished_Y, notplayed, plan)
+            im = dp.draw_plan(completed, completed_y, unfinished, unfinished_y, notplayed, plan, completed_len)
         elif category == 'completed' or category == 'unfinished':
             data = completed if category == 'completed' else unfinished
             lendata = len(data)
@@ -691,12 +738,8 @@ async def level_process_data(
             dp = DrawScore(image)
             im = dp.draw_category(category, notplayed)
         
-        msg = im
-    except UserNotFoundError as e:
-        msg = str(e)
-    except UserNotExistsError as e:
-        msg = str(e)
-    except UserDisabledQueryError as e:
+        msg = MessageSegment.file_image(image_to_bytesio(im))
+    except (UserNotFoundError, UserNotExistsError, UserDisabledQueryError) as e:
         msg = str(e)
     except Exception as e:
         log.error(traceback.format_exc())
@@ -709,7 +752,7 @@ async def level_achievement_list_data(
     username: Optional[str], 
     rating: Union[str, float], 
     page: int = 1
-) -> Union[str, Image.Image]:
+) -> Union[MessageSegment, str]:
     """
     查看分数列表
 
@@ -719,6 +762,8 @@ async def level_achievement_list_data(
         `rating` : 定数
         `page` : 页数
         `nickname` : 用户昵称
+    Returns:
+        `Union[MessageSegment, str]
     """
     try:
         data: Union[List[PlayInfoDefault], List[PlayInfoDev]] = []
@@ -761,13 +806,8 @@ async def level_achievement_list_data(
 
         sc = DrawScore(image)
         im = sc.draw_scorelist(rating, newdata, page, end_page_num)
-        msg = im
-        # msg = MessageSegment.image(await image_to_save(text_to_image(data.strip())))
-    except UserNotFoundError as e:
-        msg = str(e)
-    except UserNotExistsError as e:
-        msg = str(e)
-    except UserDisabledQueryError as e:
+        msg = MessageSegment.file_image(image_to_bytesio(im))
+    except (UserNotFoundError, UserNotExistsError, UserDisabledQueryError) as e:
         msg = str(e)
     except Exception as e:
         log.error(traceback.format_exc())
@@ -775,13 +815,15 @@ async def level_achievement_list_data(
     return msg
 
 
-async def rating_ranking_data(name: str, page: int) -> Union[str, Image.Image]:
+async def rating_ranking_data(name: str, page: int) -> Union[MessageSegment, str]:
     """
     查看查分器排行榜
     
     Params:
         `name`: 指定用户名
         `page`: 页数
+    Returns:
+        `Union[MessageSegment, str]`
     """
     try:
         rank_data = await maiApi.rating_ranking()
@@ -802,8 +844,8 @@ async def rating_ranking_data(name: str, page: int) -> Union[str, Image.Image]:
             end = page * 50 if page * 50 < user_num else user_num
             for i, ranker in enumerate(rank_data[(page - 1) * 50:end]):
                 msg += f'No.{i + 1 + (page - 1) * 50:02d}.「{ranker.ra}」 {ranker.username} \n'
-            msg += f'第{page}页，共{user_num // 50 + 1}页'
-            data = text_to_image(msg.strip())
+            msg += f'第「{page}」页，共「{user_num // 50 + 1}」页'
+            data = MessageSegment.file_image(text_to_bytes_io(msg.strip()))
     except Exception as e:
         log.error(traceback.format_exc())
         data = f'未知错误：{type(e)}\n请联系Bot管理员'

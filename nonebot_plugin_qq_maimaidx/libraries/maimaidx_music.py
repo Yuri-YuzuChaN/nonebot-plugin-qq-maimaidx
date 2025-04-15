@@ -84,7 +84,13 @@ class MusicList(List[Music]):
             count = Counter(music.level)
             if count.get(level) > 1: # 同曲有相同等级
                 lv[music.id] = { 
-                    index: RaMusic(id=music.id, ds=music.ds[index], lv=str(index), lvp=music.level[index], type=music.type) 
+                    index: RaMusic(
+                        id=music.id, 
+                        ds=music.ds[index], 
+                        lv=str(index), 
+                        lvp=music.level[index], 
+                        type=music.type
+                    ) 
                     for index, _lv in enumerate(music.level) 
                     if _lv == level 
                 }
@@ -273,9 +279,9 @@ async def get_music_list() -> MusicList:
     for music in music_data:
         if music['id'] in chart_stats['charts']:
             _stats = [
-                    _data if _data else None
-                    for _data in chart_stats['charts'][music['id']]
-                ] if {} in chart_stats['charts'][music['id']] else \
+                _data if _data else None
+                for _data in chart_stats['charts'][music['id']]
+            ] if {} in chart_stats['charts'][music['id']] else \
             chart_stats['charts'][music['id']]
         else:
             _stats = None
@@ -303,7 +309,7 @@ async def get_music_alias_list() -> AliasList:
     except ServerError as e:
         log.error(str(e) + '。已切换至本地暂存文件')
         alias_data = await openfile(alias_file)
-    except:
+    except UnknownError:
         log.error('获取所有曲目别名信息错误，请检查网络环境。已切换至本地暂存文件')
         alias_data = await openfile(alias_file)
         if not alias_data:
@@ -311,8 +317,8 @@ async def get_music_alias_list() -> AliasList:
             raise ValueError
 
     total_alias_list = AliasList()
-    for _a in alias_data:
-        total_alias_list.append(Alias(**_a))
+    for _a in filter(lambda x: mai.total_list.by_id(x['SongID']), alias_data):
+        total_alias_list.append(Alias.model_validate(_a))
 
     return total_alias_list
 

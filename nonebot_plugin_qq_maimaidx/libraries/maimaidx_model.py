@@ -172,7 +172,7 @@ class RiseScore(BaseModel):
     achievements: float
     oldra: Optional[int] = 0
     oldrate: Optional[str] = 'D'
-    oldachievements: Optional[str] = 0
+    oldachievements: Optional[float] = 0
 
 
 ##### Dev

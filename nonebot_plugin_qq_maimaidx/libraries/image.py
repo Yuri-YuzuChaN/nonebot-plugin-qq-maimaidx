@@ -1,14 +1,11 @@
 import base64
 from io import BytesIO
-from random import sample
-from string import ascii_uppercase, digits
 from typing import Tuple, Union
 
-import aiofiles
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
-from ..config import SIYUAN, FileServer, Path, TempPicturePath, coverdir
+from ..config import SHANGGUMONO, Path, coverdir
 
 
 class DrawText:
@@ -117,7 +114,7 @@ def music_picture(music_id: Union[int, str]) -> Path:
 
 
 def text_to_image(text: str) -> Image.Image:
-    font = ImageFont.truetype(str(SIYUAN), 24)
+    font = ImageFont.truetype(str(SHANGGUMONO), 24)
     padding = 10
     margin = 4
     lines = text.strip().split('\n')
@@ -135,7 +132,7 @@ def text_to_image(text: str) -> Image.Image:
     return im
 
 
-def to_bytes_io(text: str) -> BytesIO:
+def text_to_bytes_io(text: str) -> BytesIO:
     bio = BytesIO()
     text_to_image(text).save(bio, format='PNG')
     bio.seek(0)
@@ -155,13 +152,3 @@ def image_to_bytesio(img: Image.Image, format_='PNG') -> BytesIO:
     img.save(bio, format_)
     bio.seek(0)
     return bio
-
-
-async def image_to_save(img: Image.Image, format='PNG') -> str:
-    by = BytesIO()
-    img.save(by, format)
-    filename = ''.join(sample(ascii_uppercase + digits, 10)) + '.png'
-    async with aiofiles.open(TempPicturePath / filename, 'wb') as f:
-        await f.write(by.getbuffer())
-    
-    return FileServer + f'/temp/{filename}'
