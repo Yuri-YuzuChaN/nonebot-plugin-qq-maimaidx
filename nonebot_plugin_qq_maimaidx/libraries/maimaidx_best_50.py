@@ -170,14 +170,14 @@ class DrawBest(ScoreBaseImage):
 
     async def draw(self) -> Image.Image:
         
-        # logo = Image.open(maimaidir / 'logo.png').resize((378, 172))
+        logo = Image.open(maimaidir / 'logo.png').resize((249, 120))
         dx_rating = Image.open(maimaidir / self._findRaPic()).resize((186, 35))
         Name = Image.open(maimaidir / 'Name.png')
         MatchLevel = Image.open(maimaidir / self._findMatchLevel()).resize((80, 32))
         ClassLevel = Image.open(maimaidir / 'UI_FBR_Class_00.png').resize((90, 54))
         rating = Image.open(maimaidir / 'UI_CMN_Shougou_Rainbow.png').resize((270, 27))
 
-        # self._im.alpha_composite(logo, (5, 130))
+        self._im.alpha_composite(logo, (14, 60))
         if self.plate:
             plate = Image.open(platedir / f'{self.plate}.png').resize((800, 130))
         else:
