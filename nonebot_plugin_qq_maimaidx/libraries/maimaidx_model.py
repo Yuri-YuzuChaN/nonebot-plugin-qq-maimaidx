@@ -76,17 +76,6 @@ class Alias(BaseModel):
     Alias: List[str]
 
 
-class Approved(BaseModel):
-    
-    ApplyUID: int
-    Tag: str
-    SongID: int
-    Name: str
-    ApplyAlias: str
-    GroupID: int
-    WSUUID: str
-
-
 class AliasStatus(BaseModel):
     
     ApplyUID: int
@@ -97,18 +86,6 @@ class AliasStatus(BaseModel):
     Time: str
     AgreeVotes: Optional[int] = 0
     Votes: int
-
-class Reviewed(BaseModel):
-
-    SongID: int
-    ApplyUID: int
-    ApplyAlias: str
-
-
-class PushAliasStatus(BaseModel):
-    
-    Type: str
-    Status: Union[AliasStatus, Approved, Reviewed]
 
 
 ##### Guess
