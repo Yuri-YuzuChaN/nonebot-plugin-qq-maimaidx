@@ -7,12 +7,9 @@ from nonebot.adapters.qq import (
     DirectMessageCreateEvent,
     GroupAtMessageCreateEvent,
     Message,
-    MessageSegment,
 )
 from nonebot.params import CommandArg, Depends
-from PIL import Image
 
-from ..libraries.image import image_to_bytesio
 from ..libraries.maimaidx_best_50 import generate
 from ..libraries.maimaidx_database import get_user
 from ..libraries.maimaidx_error import UserNotBindError

@@ -39,7 +39,7 @@ async def draw_music_info(
                 player = await maiApi.query_user_b50(qqid=qqid)
             else:
                 player = user
-            if music.basic_info.version in list(plate_to_version.values())[-1]:
+            if music.basic_info.version in list(plate_to_dx_version.values())[-2]:
                 bestlist = player.charts.dx
                 isfull = bool(len(bestlist) == 15)
             else:
@@ -146,7 +146,7 @@ async def draw_music_play_data(qqid: int, music_id: str) -> Union[str, MessageSe
                 diff[_d.level_index] = _d
             dev = True
         else:
-            version = list(set(_v for _v in plate_to_version.values()))
+            version = list(set(_v for _v in plate_to_dx_version.values()))
             data = await maiApi.query_user_plate(qqid=qqid, version=version)
 
             music = mai.total_list.by_id(music_id)
@@ -281,7 +281,7 @@ async def draw_rating_table(qqid: int, rating: str, isfc: bool = False) -> Union
         `Union[MessageSegment, str]`
     """
     try:
-        version = list(set(_v for _v in plate_to_version.values()))
+        version = list(set(_v for _v in plate_to_dx_version.values()))
         obj = await maiApi.query_user_plate(qqid=qqid, version=version)
         
         statistics = {
@@ -424,27 +424,7 @@ async def draw_plate_table(qqid: int, version: str, plan: str) -> Union[str, Mes
     try:
         if version in platecn:
             version = platecn[version]
-        if version == '真':
-            ver = [plate_to_version['真']] + [plate_to_version['初']]
-            _ver = version
-        elif version in ['熊', '华', '華']:
-            ver = [plate_to_version['熊']]
-            _ver = '熊&华'
-        elif version in ['爽', '煌']:
-            ver = [plate_to_version['爽']]
-            _ver = '爽&煌'
-        elif version in ['宙', '星']:
-            ver = [plate_to_version['宙']]
-            _ver = '宙&星'
-        elif version in ['祭', '祝']:
-            ver = [plate_to_version['祭']]
-            _ver = '祭&祝'
-        elif version in ['双', '宴']:
-            ver = [plate_to_version['双']]
-            _ver = '双&宴'
-        else:
-            ver = [plate_to_version[version]]
-            _ver = version
+        ver, _ver = version_map.get(version, ([plate_to_dx_version[version]], version))
   
         music_id_list = mai.total_plate_id_list[_ver]
         music = mai.total_list.by_id_list(music_id_list)

@@ -40,6 +40,7 @@ async def get_music():
     log.info('正在获取maimai所有曲目别名信息')
     await mai.get_music_alias()
     log.success('maimai数据获取完成')
+    await update_rating_table()
 
 
 scheduler.add_job(update_daily, 'cron', hour=4)

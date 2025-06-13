@@ -46,19 +46,23 @@ async def _(
 
 
 @rating_table_pf.handle()
-async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], args: Message = CommandArg(), user_id: str = Depends(get_qqid)):
+async def _(
+    event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], 
+    message: Message = CommandArg(), 
+    user_id: str = Depends(get_qqid)
+):
     try:
         if isinstance(event, GroupAtMessageCreateEvent):
             user_id = get_user(user_id).QQID
-        args: str = args.extract_plain_text().strip()
+        args: str = message.extract_plain_text().strip()
         rating = re.search(r'^([0-9]+\+?)(ap|app|fc|fcp|fs|fsp|fdx|fdxp)?', args, re.IGNORECASE)
-        plate = re.search(r'^([真超檄橙暁晓桃櫻樱紫菫堇白雪輝辉舞霸熊華华爽煌星宙祭祝双宴])([極极将舞神者]舞?)$', args)
+        plate = re.search(r'^([真超檄橙暁晓桃櫻樱紫菫堇白雪輝辉舞霸熊華华爽煌星宙祭祝双宴镜])([極极将舞神者]舞?)$', args)
         if rating:
             ra = rating.group(1)
             plan = rating.group(2)
-            if args in levelList[:5]:
-                await rating_table_pf.send('只支持查询lv6-15的完成表')
-            elif ra in levelList[5:]:
+            if args in levelList[:6]:
+                await rating_table_pf.send('只支持查询lv7-15的完成表')
+            elif ra in levelList[6:]:
                 pic = await draw_rating_table(user_id, ra, True if plan and plan.lower() in combo_rank + sync_rank_p else False)
                 await rating_table_pf.send(pic)
             else:
@@ -81,13 +85,17 @@ async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], args:
         
 
 @plate_process.handle()
-async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], message: Message = CommandArg(), user_id: str = Depends(get_qqid)):
+async def _(
+    event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], 
+    message: Message = CommandArg(), 
+    user_id: str = Depends(get_qqid)
+):
     try:
         if isinstance(event, GroupAtMessageCreateEvent):
             user_id = get_user(user_id).QQID
         username = None
         args = message.extract_plain_text().lower()
-        match = re.search(r'^([真超檄橙暁晓桃櫻樱紫菫堇白雪輝辉舞霸熊華华爽煌星宙祭祝双宴])([極极将舞神者]舞?)$', args)
+        match = re.search(r'^([真超檄橙暁晓桃櫻樱紫菫堇白雪輝辉舞霸熊華华爽煌星宙祭祝双宴镜])([極极将舞神者]舞?)$', args)
         if not match:
             await plate_process.finish('输入错误，请重新确定牌子')
         ver = match.group(1)
@@ -102,7 +110,11 @@ async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], messa
 
 
 @level_process.handle()
-async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], message: Message = CommandArg(), user_id: str = Depends(get_qqid)):
+async def _(
+    event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], 
+    message: Message = CommandArg(), 
+    user_id: str = Depends(get_qqid)
+):
     try:
         if isinstance(event, GroupAtMessageCreateEvent):
             user_id = get_user(user_id).QQID
@@ -143,7 +155,11 @@ async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], messa
 
 
 @level_achievement_list.handle()
-async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], message: Message = CommandArg(), user_id: str = Depends(get_qqid)):
+async def _(
+    event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], 
+    message: Message = CommandArg(), 
+    user_id: str = Depends(get_qqid)
+):
     try:
         if isinstance(event, GroupAtMessageCreateEvent):
             user_id = get_user(user_id).QQID

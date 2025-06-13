@@ -1,4 +1,5 @@
 import re
+from textwrap import dedent
 from typing import List, Tuple, Union
 
 from nonebot import on_command
@@ -12,14 +13,14 @@ from nonebot.adapters.qq import (
 from nonebot.params import CommandArg, Depends
 
 from ..config import SONGS_PER_PAGE, diffs
-from ..libraries.image import image_to_bytesio, text_to_bytes_io, text_to_image
+from ..libraries.image import text_to_bytes_io
 from ..libraries.maimaidx_database import get_user
 from ..libraries.maimaidx_error import AliasesNotFoundError, UserNotBindError
 from ..libraries.maimaidx_model import AliasStatus
 from ..libraries.maimaidx_music import mai, maiApi
 from ..libraries.maimaidx_music_info import draw_music_info
 
-search_music              = on_command('查歌')
+search_music        = on_command('查歌')
 search_base         = on_command('定数查歌')
 search_bpm          = on_command('bpm查歌')
 search_artist       = on_command('曲师查歌')
@@ -74,7 +75,9 @@ async def _(
         await search_music.finish('请输入关键词')
     result = mai.total_list.filter(title_search=name)
     if len(result) == 0:
-        await search_music.finish('没有找到这样的乐曲。\n※ 如果是别名请使用「别名查歌」指令进行查询哦。')
+        await search_music.finish(
+            '没有找到这样的乐曲。\n※ 如果是别名请使用「别名查歌」指令进行查询哦。'
+        )
     if len(result) == 1:
         await search_music.finish(await draw_music_info(result.random(), user_id))
     
@@ -83,34 +86,41 @@ async def _(
     for i, music in enumerate(result):
         if (page - 1) * SONGS_PER_PAGE <= i < page * SONGS_PER_PAGE:
             search_result += f'{f"「{music.id}」":<7} {music.title}\n'
-    search_result += f'第「{page}」页，共「{len(result) // SONGS_PER_PAGE + 1}」页。请使用「id xxxxx」查询指定曲目。'
+    search_result += (
+        f'第「{page}」页，'
+        f'共「{len(result) // SONGS_PER_PAGE + 1}」页。'
+        '请使用「id xxxxx」查询指定曲目。'
+    )
     await search_music.send(MessageSegment.file_image(text_to_bytes_io(search_result)))
 
 
 @search_base.handle()
-async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], message: Message = CommandArg()):
+async def _(
+    event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], 
+    message: Message = CommandArg()
+):
     args = message.extract_plain_text().strip().split()
     if len(args) > 4 or len(args) == 0:
-        await search_base.finish('命令格式：\n定数查歌 「定数」\n定数查歌 「定数下限」 「定数上限」')
+        await search_base.finish(
+            dedent('''
+                命令格式：
+                定数查歌 「定数」「页数」
+                定数查歌 「定数下限」「定数上限」「页数」
+            ''')
+        )
     page = 1
     if len(args) == 1:
-        result = song_level(float(args[0]), float(args[0]))
+        ds1, ds2 = args[0], args[0]
     elif len(args) == 2:
-        try:
-            result = song_level(float(args[0]), float(args[1]))
-        except:
-            page = int(args[1]) if args[1].isdigit() else 1
-            result = song_level(float(args[0]), float(args[0]))
-    elif len(args) == 3:
-        try:
-            page = int(args[2]) if args[2].isdigit() else 1
-            result = song_level(float(args[0]), float(args[1]))
-        except:
-            page = int(args[2]) if args[2].isdigit() else 1
-            result = song_level(float(args[0]), float(args[0]))
+        if '.' in args[1]:
+            ds1, ds2 = args
+        else:
+            ds1, ds2 = args[0], args[0]
+            page = args[1]
     else:
-        result = song_level(float(args[0]), float(args[1]))
-        page = int(args[2]) if args[2].isdigit() else 1
+        ds1, ds2, page = args
+    page = int(page)
+    result = song_level(float(ds1), float(ds2))
     if not result:
         await search_base.finish('没有找到这样的乐曲。')
     
@@ -119,12 +129,19 @@ async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], messa
         id, title, ds, diff = _result
         if (page - 1) * SONGS_PER_PAGE <= i < page * SONGS_PER_PAGE:
             search_result += f'{f"「{id}」":<7}{f"「{diff}」":<11}{f"「{ds}」"} {title}\n'
-    search_result += f'第「{page}」页，共「{len(result) // SONGS_PER_PAGE + 1}」页。请使用「id xxxxx」查询指定曲目。'
+    search_result += (
+        f'第「{page}」页，'
+        f'共「{len(result) // SONGS_PER_PAGE + 1}」页。'
+        '请使用「id xxxxx」查询指定曲目。'
+    )
     await search_base.send(MessageSegment.file_image(text_to_bytes_io(search_result)))
 
 
 @search_bpm.handle()
-async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], message: Message = CommandArg()):
+async def _(
+    event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], 
+    message: Message = CommandArg()
+):
     args = message.extract_plain_text().strip().split()
     page = 1
     if len(args) == 1:
@@ -139,7 +156,8 @@ async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], messa
         result = mai.total_list.filter(bpm=(int(args[0]), int(args[1])))
         page = int(args[2])
     else:
-        await search_bpm.finish('命令格式：\nbpm查歌 「bpm」\nbpm查歌 「bpm下限」「bpm上限」「页数」')
+        await search_bpm.finish(
+            '命令格式：\nbpm查歌 「bpm」\nbpm查歌 「bpm下限」「bpm上限」「页数」', )
     if not result:
         await search_bpm.finish('没有找到这样的乐曲。')
     
@@ -150,12 +168,19 @@ async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], messa
     for i, m in enumerate(result):
         if (page - 1) * SONGS_PER_PAGE <= i < page * SONGS_PER_PAGE:
             search_result += f'{f"「{m.id}」":<7}{f"「BPM {m.basic_info.bpm}」":<9} {m.title} \n'
-    search_result += f'第「{page}」页，共「{len(result) // SONGS_PER_PAGE + 1}」页。请使用「id xxxxx」查询指定曲目。'
+    search_result += (
+        f'第「{page}」页，'
+        f'共「{len(result) // SONGS_PER_PAGE + 1}」页。'
+        '请使用「id xxxxx」查询指定曲目。'
+    )
     await search_bpm.send(MessageSegment.file_image(text_to_bytes_io(search_result)))
 
 
 @search_artist.handle()
-async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], message: Message = CommandArg()):
+async def _(
+    event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], 
+    message: Message = CommandArg()
+):
     args = message.extract_plain_text().strip().split()
     page = 1
     if len(args) == 1:
@@ -178,12 +203,19 @@ async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], messa
     for i, m in enumerate(result):
         if (page - 1) * SONGS_PER_PAGE <= i < page * SONGS_PER_PAGE:
             search_result += f'{f"「{m.id}」":<7}{f"「{m.basic_info.artist}」"} - {m.title}\n'
-    search_result += f'第「{page}」页，共「{len(result) // SONGS_PER_PAGE + 1}」页。请使用「id xxxxx」查询指定曲目。'
+    search_result += (
+        f'第「{page}」页，'
+        f'共「{len(result) // SONGS_PER_PAGE + 1}」页。'
+        '请使用「id xxxxx」查询指定曲目。'
+    )
     await search_artist.send(MessageSegment.file_image(text_to_bytes_io(search_result)))
 
 
 @search_charter.handle()
-async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], message: Message = CommandArg()):
+async def _(
+    event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], 
+    message: Message = CommandArg()
+):
     args = message.extract_plain_text().strip().split()
     page = 1
     if len(args) == 1:
@@ -206,13 +238,26 @@ async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], messa
     for i, m in enumerate(result):
         if (page - 1) * SONGS_PER_PAGE <= i < page * SONGS_PER_PAGE:
             diff_charter = zip([diffs[d] for d in m.diff], [m.charts[d].charter for d in m.diff])
-            search_result += f'''{f"「{m.id}」":<7}{" ".join([f"{f'「{d}」':<9}{f'「{c}」'}" for d, c in diff_charter])} {m.title}\n'''
-    search_result += f'第「{page}」页，共「{len(result) // SONGS_PER_PAGE + 1}」页。请使用「id xxxxx」查询指定曲目。'
+            diff_parts = [
+                f"{f'「{d}」':<9}{f'「{c}」'}"
+                for d, c in diff_charter
+            ]
+            diff_str = " ".join(diff_parts)
+            line = f"{f'「{m.id}」':<7}{diff_str} {m.title}\n"
+            search_result += line
+    search_result += (
+        f'第「{page}」页，'
+        f'共「{len(result) // SONGS_PER_PAGE + 1}」页。'
+        '请使用「id xxxxx」查询指定曲目。'
+    )
     await search_charter.send(MessageSegment.file_image(text_to_bytes_io(search_result)))
 
 
 @search_alias_song.handle()
-async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], message: Message = CommandArg(), user_id: str = Depends(get_qqid)):
+async def _(
+    event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], 
+    message: Message = CommandArg(), user_id: str = Depends(get_qqid)
+):
     try:
         if isinstance(event, GroupAtMessageCreateEvent):
             user_id = get_user(user_id).QQID
@@ -223,15 +268,12 @@ async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], messa
     # 别名
     alias_data = mai.total_alias_list.by_alias(name)
     if not alias_data:
-        try:
-            obj = await maiApi.get_songs(name)
-            if obj:
-                if type(obj[0]) == AliasStatus:
-                    await search_alias_song.finish(error_msg)
-                else:
-                    alias_data = obj
-        except AliasesNotFoundError:
-            pass
+        obj = await maiApi.get_songs(name)
+        if obj:
+            if type(obj[0]) == AliasStatus:
+                await search_alias_song.finish(error_msg)
+            else:
+                alias_data = obj
     if alias_data:
         if len(alias_data) != 1:
             msg = f'找到{len(alias_data)}个相同别名的曲目：\n'
@@ -249,17 +291,23 @@ async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], messa
     
     # id
     if name.isdigit() and (music := mai.total_list.by_id(name)):
-        await search_alias_song.finish('您要找的是不是：' + await draw_music_info(music, user_id))
+        await search_alias_song.finish(
+            '您要找的是不是：' + await draw_music_info(music, user_id)
+        )
     if search_id := re.search(r'^id([0-9]*)$', name, re.IGNORECASE):
         music = mai.total_list.by_id(search_id.group(1))
-        await search_alias_song.finish('您要找的是不是：' + await draw_music_info(music, user_id))
+        await search_alias_song.finish(
+            '您要找的是不是：' + await draw_music_info(music, user_id)
+        )
     
     # 标题
     result = mai.total_list.filter(title_search=name)
     if len(result) == 0:
         await search_alias_song.finish(error_msg)
     elif len(result) == 1:
-        await search_alias_song.finish('您要找的是不是：' + await draw_music_info(result.random(), user_id))
+        await search_alias_song.finish(
+            '您要找的是不是：' + await draw_music_info(result.random(), user_id)
+        )
     elif len(result) < 50:
         msg = f'未找到别名为「{name}」的歌曲，但找到{len(result)}个相似标题的曲目：\n'
         for music in sorted(result, key=lambda x: int(x.id)):
@@ -271,7 +319,10 @@ async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], messa
 
 
 @query_chart.handle()
-async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], message: Message = CommandArg(), user_id: str = Depends(get_qqid)):
+async def _(
+    event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], 
+    message: Message = CommandArg(), user_id: str = Depends(get_qqid)
+):
     try:
         if isinstance(event, GroupAtMessageCreateEvent):
             user_id = get_user(user_id).QQID
