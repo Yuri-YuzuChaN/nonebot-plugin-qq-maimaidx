@@ -324,6 +324,8 @@ def get_rise_score_list(
         `Tuple[List[RiseScore], int]`
     """
     ignore = [m.song_id for m in info if m.achievements >= 100.5]
+    if not info:
+        return [], 0
     ra = info[-1].ra
     music: List[RiseScore] = []
     if score is None:
@@ -378,7 +380,7 @@ def get_rise_score_list(
                 break
     if not music:
         return music, 0
-    new = random.sample(music, musiclen if 0 < (musiclen := len(musiclist)) < 5 else 5)
+    new = random.sample(music, min(len(music), 5))
     new.sort(key=lambda x: x.song_id, reverse=True)
     return new, ra
 
@@ -582,18 +584,6 @@ async def player_plate_data(
     else:
         result = f'已经没有剩余的的曲目了，恭喜{appellation}完成「{version}{plan}」！'
     return result
-
-
-def calc(data: dict) -> Union[PlayInfoDefault, PlayInfoDev]:
-    if not maiApi.token:
-        _m = mai.total_list.by_id(data['id'])
-        ds: float = _m.ds[data['level_index']]
-        a: float = data['achievements']
-        ra, rate = computeRa(ds, a, israte=True)
-        info = PlayInfoDefault(**data, ds=ds, ra=ra, rate=rate)
-    else:
-        info = PlayInfoDev(**data)
-    return info
 
 
 async def level_process_data(
