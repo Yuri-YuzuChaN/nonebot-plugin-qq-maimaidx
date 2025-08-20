@@ -79,4 +79,4 @@
 
 ## 指令
 
-![img](https://raw.githubusercontent.com/Yuri-YuzuChaN/nonebot-plugin-qq-maimaidx/master/nonebot_plugin_maimaidx/maimaidxhelp.png)
+![img](https://raw.githubusercontent.com/Yuri-YuzuChaN/nonebot-plugin-qq-maimaidx/master/nonebot_plugin_qq_maimaidx/maimaidxhelp.png)
