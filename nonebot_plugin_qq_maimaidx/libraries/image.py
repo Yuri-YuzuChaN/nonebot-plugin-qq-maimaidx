@@ -140,6 +140,8 @@ def text_to_bytes_io(text: str) -> BytesIO:
 
 
 def base64_to_bytesio(base64_str: str) -> BytesIO:
+    if base64_str.startswith('base64://'):
+        base64_str = base64_str[len('base64://'):]
     byte_data = base64.b64decode(base64_str)
     return BytesIO(byte_data)
 
