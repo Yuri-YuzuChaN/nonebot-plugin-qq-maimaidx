@@ -11,11 +11,7 @@ app: FastAPI = nonebot.get_app()
 async def _():
     await mai.get_music()
     await mai.get_music_alias()
+    await mai.get_plate_json()
     await update_rating_table()
-    return JSONResponse({'content': 'Update Success'}, 200)
-
-
-@app.get('/maimai/updateplate')
-async def _():
     await update_plate_table()
     return JSONResponse({'content': 'Update Success'}, 200)
