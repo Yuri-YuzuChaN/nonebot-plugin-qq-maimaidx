@@ -9,9 +9,11 @@ from nonebot.adapters.qq import (
 )
 from nonebot.params import CommandArg, Depends
 
-from ..libraries.maimaidx_database import get_user
-from ..libraries.maimaidx_music_info import *
+from ..config import rating_dir
+from ..libraries.clients.exceptions import UserNotBindError
+from ..libraries.database.qq_database import get_user
 from ..libraries.maimaidx_player_score import *
+from ..libraries.search import *
 
 rating_table            = on_command('定数表')
 rating_table_pf         = on_command('完成表')
@@ -21,7 +23,7 @@ level_achievement_list  = on_command('分数列表')
 
 
 def get_qqid(
-    event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent, DirectMessageCreateEvent]
+    event: GroupAtMessageCreateEvent | AtMessageCreateEvent | DirectMessageCreateEvent
 ) -> str:
     if isinstance(event, GroupAtMessageCreateEvent):
         return event.author.member_openid
@@ -31,14 +33,14 @@ def get_qqid(
 
 @rating_table.handle()
 async def _(
-    event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], 
+    event: GroupAtMessageCreateEvent | AtMessageCreateEvent, 
     message: Message = CommandArg()
 ):
     args = message.extract_plain_text().strip()
-    if args in levelList[:5]:
+    if args in LEVEL_LIST[:5]:
         await rating_table.send('只支持查询lv6-15的定数表')
-    elif args in levelList[5:]:
-        path = ratingdir / f'{args}.png'
+    elif args in LEVEL_LIST[5:]:
+        path = rating_dir / f'{args}.png'
         pic = draw_rating(args, path)
         await rating_table.send(pic)
     else:
@@ -47,31 +49,31 @@ async def _(
 
 @rating_table_pf.handle()
 async def _(
-    event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], 
+    event: GroupAtMessageCreateEvent | AtMessageCreateEvent, 
     message: Message = CommandArg(), 
     user_id: str = Depends(get_qqid)
 ):
     try:
         if isinstance(event, GroupAtMessageCreateEvent):
-            user_id = get_user(user_id).QQID
+            user_id = await get_user(user_id).QQID
         args: str = message.extract_plain_text().strip()
         rating = re.search(r'^([0-9]+\+?)(ap|app|fc|fcp|fs|fsp|fdx|fdxp)?', args, re.IGNORECASE)
         plate = re.search(r'^([真超檄橙暁晓桃櫻樱紫菫堇白雪輝辉舞霸熊華华爽煌星宙祭祝双宴镜彩])([極极将舞神者]舞?)$', args)
         if rating:
             ra = rating.group(1)
             plan = rating.group(2)
-            if args in levelList[:6]:
+            if args in LEVEL_LIST[:6]:
                 await rating_table_pf.send('只支持查询lv7-15的完成表')
-            elif ra in levelList[6:]:
-                pic = await draw_rating_table(user_id, ra, True if plan and plan.lower() in combo_rank + sync_rank_p else False)
+            elif ra in LEVEL_LIST[6:]:
+                pic = await draw_rating_table(user_id, ra, True if plan and plan.lower() in COMBO_SP + SYNC_SP else False)
                 await rating_table_pf.send(pic)
             else:
                 await rating_table_pf.send('无法识别的表格')
         elif plate:
             ver = plate.group(1)
             plan = plate.group(2)
-            if ver in platecn:
-                ver = platecn[ver]
+            if ver in PLATE_CN:
+                ver = PLATE_CN[ver]
             if ver in ['舞', '霸']:
                 await rating_table_pf.finish('暂不支持查询「舞」系和「霸者」的牌子')
             if f'{ver}{plan}' == '真将':
@@ -86,13 +88,13 @@ async def _(
 
 @plate_process.handle()
 async def _(
-    event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], 
+    event: GroupAtMessageCreateEvent | AtMessageCreateEvent, 
     message: Message = CommandArg(), 
     user_id: str = Depends(get_qqid)
 ):
     try:
         if isinstance(event, GroupAtMessageCreateEvent):
-            user_id = get_user(user_id).QQID
+            user_id = await get_user(user_id).QQID
         username = None
         args = message.extract_plain_text().lower()
         match = re.search(r'^([真超檄橙暁晓桃櫻樱紫菫堇白雪輝辉舞霸熊華华爽煌星宙祭祝双宴镜彩])([極极将舞神者]舞?)$', args)
@@ -111,44 +113,44 @@ async def _(
 
 @level_process.handle()
 async def _(
-    event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], 
+    event: GroupAtMessageCreateEvent | AtMessageCreateEvent, 
     message: Message = CommandArg(), 
     user_id: str = Depends(get_qqid)
 ):
     try:
         if isinstance(event, GroupAtMessageCreateEvent):
-            user_id = get_user(user_id).QQID
+            user_id = await get_user(user_id).QQID
         args = message.extract_plain_text().lower()
         match = re.search(r'([0-9]+\+?)\s?([abcdsfxp\+]+)\s?([\u4e00-\u9fa5]+)?\s?([0-9]+)?\s?(.+)?', args)
         if not match:
             await level_process.finish('输入错误，请重新输入难度等级')
         level = match.group(1)
         plan = match.group(2)
-        category = match.group(3)
+        CATEGORY = match.group(3)
         page = match.group(4)
         username = match.group(5)
         
-        if level not in levelList:
+        if level not in LEVEL_LIST:
             await level_process.finish('无此等级')
-        if plan.lower() not in scoreRank + comboRank + syncRank:
+        if plan.lower() not in scoreRank + COMBO_PLUS + SYNC_PLUS:
             await level_process.finish('无此评价等级')
-        if levelList.index(level) < 11 or (plan.lower() in scoreRank and scoreRank.index(plan.lower()) < 8):
+        if LEVEL_LIST.index(level) < 11 or (plan.lower() in scoreRank and scoreRank.index(plan.lower()) < 8):
             await level_process.finish('兄啊，有点志向好不好')
-        if category:
-            if category in ['已完成', '未完成', '未开始']:
+        if CATEGORY:
+            if CATEGORY in ['已完成', '未完成', '未开始']:
                 _c = {
                     '已完成': 'completed',
                     '未完成': 'unfinished',
                     '未开始': 'notstarted',
                     '未游玩': 'notstarted'
                 }
-                category = _c[category]
+                CATEGORY = _c[CATEGORY]
             else:
-                await level_process.finish(f'无法指定查询「{category}」')
+                await level_process.finish(f'无法指定查询「{CATEGORY}」')
         else:
-            category = 'default'
+            CATEGORY = 'default'
         
-        data = await level_process_data(user_id, username, level, plan, category, int(page) if page else 1)
+        data = await level_process_data(user_id, username, level, plan, CATEGORY, int(page) if page else 1)
         await level_process.send(data)
     except UserNotBindError as e:
         await level_process.send(str(e))
@@ -156,13 +158,13 @@ async def _(
 
 @level_achievement_list.handle()
 async def _(
-    event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], 
+    event: GroupAtMessageCreateEvent | AtMessageCreateEvent, 
     message: Message = CommandArg(), 
     user_id: str = Depends(get_qqid)
 ):
     try:
         if isinstance(event, GroupAtMessageCreateEvent):
-            user_id = get_user(user_id).QQID
+            user_id = (await get_user(user_id)).QQID
         args = message.extract_plain_text().lower()
         match = re.search(r'([0-9]+\.?[0-9]?\+?)\s?([0-9]+)?\s?(.+)?', args)
         if not match:
@@ -173,10 +175,10 @@ async def _(
         try:
             if '.' in rating:
                 rating = round(float(rating), 1)
-            elif rating not in levelList:
+            elif rating not in LEVEL_LIST:
                 await level_achievement_list.finish('无此等级')
         except ValueError:
-            if rating not in levelList:
+            if rating not in LEVEL_LIST:
                 await level_achievement_list.finish('无此等级')
 
         data = await level_achievement_list_data(user_id, username, rating, int(page) if page else 1)

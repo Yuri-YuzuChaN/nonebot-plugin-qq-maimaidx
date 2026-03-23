@@ -12,7 +12,12 @@ from pyecharts.charts import Pie
 from ..config import *
 from .image import *
 from .maimaidx_api_data import *
-from .maimaidx_best_50 import ScoreBaseImage, changeColumnWidth, coloumWidth, computeRa
+from .maimaidx_best_50 import (
+    ScoreBaseImage,
+    change_column_width,
+    coloum_width,
+    computeRa,
+)
 from .maimaidx_model import PlanInfo, PlayInfoDefault, PlayInfoDev, RaMusic
 from .maimaidx_music import Music, mai
 from .tool import run_chrome_to_base64
@@ -38,8 +43,8 @@ async def music_global_data(music: Music, level_index: int) -> MessageSegment:
         `MessageSegment`
     """
     stats = music.stats[level_index]
-    fc_data_pair = [list(z) for z in zip([c.upper() if c else 'Not FC' for c in [''] + comboRank], stats.fc_dist)]
-    acc_data_pair = [list(z) for z in zip([s.upper() for s in scoreRank], stats.dist)]
+    fc_data_pair = [list(z) for z in zip([c.upper() if c else 'Not FC' for c in [''] + COMBO_PLUS], stats.fc_dist)]
+    acc_data_pair = [list(z) for z in zip([s.upper() for s in RANK_PLUS], stats.dist)]
 
     initopts = opts.InitOpts(width='1000px', height='800px', bg_color='#fff', js_host='./')
     labelopts = opts.LabelOpts(
@@ -50,7 +55,11 @@ async def music_global_data(music: Music, level_index: int) -> MessageSegment:
         border_width=1,
         border_radius=4,
         rich={
-            'a': {'color': '#999', 'lineHeight': 22, 'align': 'center'},
+            'a': {
+                'color': '#999', 
+                'lineHeight': 22, 
+                'align': 'center'
+            },
             'abg': {
                 'backgroundColor': '#e3e3e3',
                 'width': '100%',
@@ -64,7 +73,10 @@ async def music_global_data(music: Music, level_index: int) -> MessageSegment:
                 'borderWidth': 0.5,
                 'height': 0,
             },
-            'b': {'fontSize': 16, 'lineHeight': 33},
+            'b': {
+                'fontSize': 16, 
+                'lineHeight': 33
+            },
             'per': {
                 'color': '#eee',
                 'backgroundColor': '#334455',
@@ -74,18 +86,19 @@ async def music_global_data(music: Music, level_index: int) -> MessageSegment:
         },
     )
     titleopts = opts.TitleOpts(
-        title=f'{music.id} {music.title} 「{diffs[level_index]}」',
+        title=f'{music.id} {music.title} 「{DIFFS[level_index]}」',
         pos_left='center',
         pos_top='20',
         title_textstyle_opts=opts.TextStyleOpts(color='#2c343c'),
     )
     legendopts = opts.LegendOpts(pos_left=15, pos_top=10, orient='vertical')
+    tooltipopts = opts.TooltipOpts(trigger='item', formatter='{a} <br/>{b}: {c} ({d}%)')
 
     pie = Pie(initopts)
     pie.add('全连等级', fc_data_pair, radius=[0, '30%'], label_opts=labelopts)
     pie.add('达成率等级', acc_data_pair, radius=['50%', '70%'], is_clockwise=True, label_opts=labelopts)
     pie.set_global_opts(title_opts=titleopts, legend_opts=legendopts)
-    pie.set_series_opts(tooltip_opts=opts.TooltipOpts(trigger='item', formatter='{a} <br/>{b}: {c} ({d}%)'))
+    pie.set_series_opts(tooltip_opts=tooltipopts)
     pie.render(str(pie_html_file))
     base64 = await run_chrome_to_base64()
 
@@ -119,7 +132,7 @@ class DrawScore(ScoreBaseImage):
                 y += dy if n != 0 else 0
             else:
                 x += 65
-            cover = Image.open(music_picture(v.id)).resize((55, 55))
+            cover = Image.open(song_chart(v.id)).resize((55, 55))
             self._im.alpha_composite(cover, (x, y))
             self._im.alpha_composite(self.id_diff[int(v.lv)], (x, y + 45))
             self._tb.draw(x + 27, y + 50, 10, v.id, self.t_color[int(v.lv)], 'mm')
@@ -141,7 +154,7 @@ class DrawScore(ScoreBaseImage):
             rate = Image.open(maimaidir / f'UI_TTR_Rank_{_d.rate}.png').resize((63, 28))
             
             self._im.alpha_composite(self._rise[_d.level_index], (x + 30, y))
-            self._im.alpha_composite(Image.open(music_picture(_d.song_id)).resize((80, 80)), (x + 55, y + 40))
+            self._im.alpha_composite(Image.open(song_chart(_d.song_id)).resize((80, 80)), (x + 55, y + 40))
             self._im.alpha_composite(Image.open(maimaidir / f'{_d.type.upper()}.png').resize((60, 22)), (x + 240, y + 114))
             if _d.oldrate:
                 oldrate = Image.open(maimaidir / f'UI_TTR_Rank_{_d.oldrate}.png').resize((63, 28))
@@ -149,20 +162,20 @@ class DrawScore(ScoreBaseImage):
             self._im.alpha_composite(rate, (x + 305, y + 82))
             
             title = _d.title
-            if coloumWidth(title) > 26:
-                title = changeColumnWidth(title, 25) + '...'
+            if coloum_width(title) > 26:
+                title = change_column_width(title, 25) + '...'
             self._sy.draw(x + 142, y + 44, 17, title, self.t_color[_d.level_index], 'lm')
-            self._tb.draw(x + 145, y + 124, 18, f'ID: {_d.song_id}', self.id_color[_d.level_index], 'lm')
+            self._tb.draw(x + 145, y + 124, 18, f'ID: {_d.song_id}', self._id_text_color[_d.level_index], 'lm')
             self._tb.draw(x + 210, y + 71, 25, f'{_d.oldachievements:.4f}%', self.t_color[_d.level_index], anchor='mm')
             self._tb.draw(x + 245, y + 96, 17, f'Ra: {_d.oldra}', self.t_color[_d.level_index], anchor='mm')
             self._tb.draw(x + 370, y + 71, 25, f'{_d.achievements:.4f}%', self.t_color[_d.level_index], anchor='mm')
             self._tb.draw(x + 415, y + 96, 17, f'Ra: {_d.ra}', self.t_color[_d.level_index], anchor='mm')
-            self._tb.draw(x + 315, y + 124, 18, f'ds:{_d.ds}', self.id_color[_d.level_index], anchor='lm')
+            self._tb.draw(x + 315, y + 124, 18, f'ds:{_d.ds}', self._id_text_color[_d.level_index], anchor='lm')
             if _d.oldra > low_score:
                 new_ra = _d.ra - _d.oldra
             else:
                 new_ra = _d.ra - low_score
-            self._tb.draw(x + 390, y + 124, 18, f'Ra +{new_ra}', self.id_color[_d.level_index], 'lm')
+            self._tb.draw(x + 390, y + 124, 18, f'Ra +{new_ra}', self._id_text_color[_d.level_index], 'lm')
          
     def draw_rise(self, sd: List[RiseScore], sd_score: int, dx: List[RiseScore], dx_score: int) -> Image.Image:
         """
@@ -178,15 +191,15 @@ class DrawScore(ScoreBaseImage):
         """
         title_bg = self.title_bg.copy().resize((273, 80))
         self._im.alpha_composite(title_bg, (314, 30))
-        self._sy.draw(450, 68, 18, '旧版本谱面推荐', self.text_color, 'mm')
+        self._sy.draw(450, 68, 18, '旧版本谱面推荐', self._default_text_color, 'mm')
         self.whilerisepic(sd, sd_score, True)
         self._im.alpha_composite(title_bg, (814, 30))
-        self._sy.draw(950, 68, 18, '新版本谱面推荐', self.text_color, 'mm')
+        self._sy.draw(950, 68, 18, '新版本谱面推荐', self._default_text_color, 'mm')
         self.whilerisepic(dx, dx_score, False)
         
         height = self._im.size[1]
         self._im.alpha_composite(self.design_bg.resize((800, 72)), (300, height - 110))
-        self._sy.draw(700, height - 76, 18, f'Designed by Yuri-YuzuChaN & BlueDeer233. Generated by {maiconfig.botName} BOT', self.text_color, 'mm')
+        self._sy.draw(700, height - 76, 18, f'Designed by Yuri-YuzuChaN & BlueDeer233. Generated by {maiconfig.botName} BOT', self._default_text_color, 'mm')
         return self._im
 
     def draw_plan(
@@ -219,9 +232,9 @@ class DrawScore(ScoreBaseImage):
         self._im.alpha_composite(self.title_lengthen_bg, (475, 30 + completed_y))
         self._im.alpha_composite(self.title_lengthen_bg, (475, 30 + completed_y + unfinished_y))
         
-        self._sy.draw(700, 77, 22, f'已完成谱面「{len(completed)}」个', self.text_color, 'mm')
-        self._sy.draw(700, 77 + completed_y, 22, f'未完成谱面「{len(unfinished)}」个', self.text_color, 'mm')
-        self._sy.draw(700, 77 + completed_y + unfinished_y, 22, f'未游玩谱面「{len(notstarted)}」个', self.text_color, 'mm')
+        self._sy.draw(700, 77, 22, f'已完成谱面「{len(completed)}」个', self._default_text_color, 'mm')
+        self._sy.draw(700, 77 + completed_y, 22, f'未完成谱面「{len(unfinished)}」个', self._default_text_color, 'mm')
+        self._sy.draw(700, 77 + completed_y + unfinished_y, 22, f'未游玩谱面「{len(notstarted)}」个', self._default_text_color, 'mm')
         
         self.whiledraw(completed[:completed_len], True, 140)
         self.whiledraw(unfinished[:30], True, 140 + completed_y)
@@ -229,12 +242,12 @@ class DrawScore(ScoreBaseImage):
 
         self._im.alpha_composite(self.design_bg, (200, self._im.size[1] - 113))
         pagemsg = f'共计「{max}」个谱面，剩余「{len(unfinished + notstarted)}」个谱面未完成「{plan.upper()}」'
-        self._sy.draw(700, self._im.size[1] - 70, 25, pagemsg, self.text_color, 'mm')
+        self._sy.draw(700, self._im.size[1] - 70, 25, pagemsg, self._default_text_color, 'mm')
         return self._im
 
     def draw_category(
         self, 
-        category: str, 
+        CATEGORY: str, 
         data: Union[List[PlayInfoDefault], List[PlayInfoDev], List[RaMusic]],
         page: int = 1, 
         end_page: int = 1
@@ -243,7 +256,7 @@ class DrawScore(ScoreBaseImage):
         绘制指定进度表
         
         Params:
-            `category`: `类别`
+            `CATEGORY`: `类别`
             `data`: `数据`
             `page`: `页数`
             `end_page`: `总页数`
@@ -253,21 +266,21 @@ class DrawScore(ScoreBaseImage):
         lendata = len(data)
         newdata = data[(page - 1) * 80: page * 80]
         self._im.alpha_composite(self.title_lengthen_bg, (475, 30))
-        if category == 'completed' or category == 'unfinished':
-            txt = '已完成' if category == 'completed' else '未完成'
-            self._sy.draw(700, 77, 28, f'{txt}谱面', self.text_color, 'mm')
+        if CATEGORY == 'completed' or CATEGORY == 'unfinished':
+            txt = '已完成' if CATEGORY == 'completed' else '未完成'
+            self._sy.draw(700, 77, 28, f'{txt}谱面', self._default_text_color, 'mm')
             self.whiledraw(newdata, True, 140)
             self._im.alpha_composite(self.design_bg, (200, self._im.size[1] - 113))
             
             pagemsg = f'{txt}谱面共计「{lendata}」个，'
             pagemsg += f'展示第「{(page - 1) * 80 + 1}-{80 * (page - 1) + len(newdata)}」个，'
             pagemsg += f'当前第「{page} / {end_page}」页'
-            self._sy.draw(700, self._im.size[1] - 70, 25, pagemsg, self.text_color, 'mm')
+            self._sy.draw(700, self._im.size[1] - 70, 25, pagemsg, self._default_text_color, 'mm')
         else:
-            self._sy.draw(700, 105, 28, '未游玩谱面', self.text_color, 'mm')
+            self._sy.draw(700, 105, 28, '未游玩谱面', self._default_text_color, 'mm')
             self.whilepic(data)
             self._im.alpha_composite(self.design_bg, (200, self._im.size[1] - 113))
-            self._sy.draw(700, self._im.size[1] - 70, 25, f'未游玩谱面共计「{len(data)}」个', self.text_color, 'mm')
+            self._sy.draw(700, self._im.size[1] - 70, 25, f'未游玩谱面共计「{len(data)}」个', self._default_text_color, 'mm')
         return self._im
     
     def draw_scorelist(
@@ -295,14 +308,14 @@ class DrawScore(ScoreBaseImage):
             y = (109 * 4 + 140) * n
             self._im.alpha_composite(self.title_lengthen_bg, (475, 30 + y))
             start = (20 * n + 1) + 80 * (page - 1)
-            self._sy.draw(700, 77 + y, 28, f'No.{start}- No.{start + len(newdata[n * 20: (n + 1) * 20]) - 1}', self.text_color, 'mm')
+            self._sy.draw(700, 77 + y, 28, f'No.{start}- No.{start + len(newdata[n * 20: (n + 1) * 20]) - 1}', self._default_text_color, 'mm')
             self.whiledraw(newdata[n * 20: (n + 1) * 20], True, 140 + y)
         self._im.alpha_composite(self.design_bg, (200, self._im.size[1] - 113))
         
         pagemsg = f'「{rating}」共计「{lendata}」个成绩，'
         pagemsg += f'展示第「{(page - 1) * 80 + 1}-{80 * (page - 1) + len(newdata)}」个，'
         pagemsg += f'当前第「{page} / {end_page}」页'
-        self._sy.draw(700, self._im.size[1] - 70, 25, pagemsg, self.text_color, 'mm')
+        self._sy.draw(700, self._im.size[1] - 70, 25, pagemsg, self._default_text_color, 'mm')
         return self._im
 
 
@@ -335,7 +348,7 @@ def get_rise_score_list(
         ss_ds = round((ra + int(score)) / 20.8, 1)
     sssp_ds = round(ra / 22.4, 1)
     ds = (sssp_ds + 0.1, ss_ds + 0.1)
-    version = list(plate_to_dx_version.values())[-2:] if type == 'DX' else list(plate_to_dx_version.values())[:-2]
+    version = list(DX_VERSION.values())[-2:] if type == 'DX' else list(DX_VERSION.values())[:-2]
     musiclist = mai.total_list.filter(level=level, ds=ds, version=version)
     for _m in musiclist:
         if (song_id := int(_m.id)) in ignore:
@@ -343,7 +356,7 @@ def get_rise_score_list(
         if song_id >= 100000:
             continue
         for index in _m.diff:
-            for r in achievementList[-4:]:
+            for r in ACHIEVEMENT_LIST[-4:]:
                 basera, rate = computeRa(_m.ds[index], r, israte=True)
                 if basera <= ra:
                     continue
@@ -405,7 +418,7 @@ async def rise_score_data(
     """
     try:
         user = await maiApi.query_user_b50(qqid=qqid, username=username)
-        records = await maiApi.query_user_plate(qqid=qqid, username=username, version=list(plate_to_dx_version.values()))
+        records = await maiApi.query_user_plate(qqid=qqid, username=username, version=list(DX_VERSION.values()))
         old_records: DefaultDict[int, Dict[int, float]] = defaultdict(dict)
         for m in records:
             old_records[m.song_id][m.level_index] = m.achievements
@@ -460,7 +473,7 @@ def plate_message(
                 self_record = m.fc
             if plan in '舞舞':
                 self_record = m.fs
-        result += f'No.{n + 1:02d} {f"「{m.song_id}」":>7} {f"「{diffs[m.level_index]}」":>11} 「{m.ds}」 {m.title}  {self_record}\n'
+        result += f'No.{n + 1:02d} {f"「{m.song_id}」":>7} {f"「{DIFFS[m.level_index]}」":>11} 「{m.ds}」 {m.title}  {self_record}\n'
     if len(music_list) > 10:
         result = MessageSegment.file_image(image_to_bytesio(text_to_image(result.strip())))
     return result
@@ -483,9 +496,9 @@ async def player_plate_data(
     Returns:
         `Union[MessageSegment, str]`
     """
-    if version in platecn:
-        version = platecn[version]
-    ver, _ver = version_map.get(version, ([plate_to_dx_version.get(version)], version))
+    if version in PLATE_CN:
+        version = PLATE_CN[version]
+    ver, _ver = VERSION_MAP.get(version, ([DX_VERSION.get(version)], version))
     
     try:
         verlist = await maiApi.query_user_plate(qqid=qqid, username=username, version=ver)
@@ -589,7 +602,7 @@ async def level_process_data(
     username: Optional[str], 
     level: str, 
     plan: str, 
-    category: str = 'default', 
+    CATEGORY: str = 'default', 
     page: int = 1
 ) -> Union[MessageSegment, str]:
     """
@@ -608,21 +621,21 @@ async def level_process_data(
             devobj = await maiApi.query_user_get_dev(qqid=qqid, username=username)
             obj = devobj.records
         else:
-            version = list(set(_v for _v in list(plate_to_dx_version.values())))
+            version = list(set(_v for _v in list(DX_VERSION.values())))
             obj = await maiApi.query_user_plate(qqid=qqid, username=username, version=version)
         music = mai.total_list.by_plan(level)
 
         planlist = [0, 0, 0]
         plannum = 0
-        if plan.lower() in scoreRank:
+        if plan.lower() in RANK_PLUS:
             plannum = 0
-            planlist[0] = achievementList[scoreRank.index(plan.lower()) - 1]
-        elif plan.lower() in comboRank:
+            planlist[0] = ACHIEVEMENT_LIST[RANK_PLUS.index(plan.lower()) - 1]
+        elif plan.lower() in COMBO_PLUS:
             plannum = 1
-            planlist[1] = comboRank.index(plan.lower())
-        elif plan.lower() in syncRank:
+            planlist[1] = COMBO_PLUS.index(plan.lower())
+        elif plan.lower() in SYNC_PLUS:
             plannum = 2
-            planlist[2] = syncRank.index(plan.lower())
+            planlist[2] = SYNC_PLUS.index(plan.lower())
         else:
             raise
         
@@ -632,11 +645,11 @@ async def level_process_data(
             if plannum == 0:
                 return _d.achievements >= plan_value
             elif plannum == 1:
-                return bool(_d.fc and combo_rank.index(_d.fc) >= plan_value)
+                return bool(_d.fc and COMBO_SP.index(_d.fc) >= plan_value)
             elif plannum == 2:
                 return bool(_d.fs and (
-                    sync_rank.index(_d.fs) >= plan_value 
-                    if _d.fs in sync_rank else sync_rank_p.index(_d.fs) >= plan_value
+                    SYNC_D_SP.index(_d.fs) >= plan_value 
+                    if _d.fs in SYNC_D_SP else SYNC_SP.index(_d.fs) >= plan_value
                 ))
             return False
         
@@ -685,7 +698,7 @@ async def level_process_data(
         unfinished.sort(key=lambda x: x.achievements if plannum == 0 else x.fc if plannum == 1 else x.fs, reverse=True)
         notplayed.sort(key=lambda x: x.ds, reverse=True)
 
-        if category == 'default':
+        if CATEGORY == 'default':
             completed_len = 60 if len(unfinished) == 0 and len(notplayed) == 0 else 30
             clen = len(completed[:completed_len])
             completed_y = (clen // 5 + (0 if clen % 5 == 0 else 1)) * 109 + 140
@@ -696,8 +709,8 @@ async def level_process_data(
             image = tricolor_gradient(1400, 150 + completed_y + unfinished_y + notstarted_y)
             dp = DrawScore(image)
             im = dp.draw_plan(completed, completed_y, unfinished, unfinished_y, notplayed, plan, completed_len)
-        elif category == 'completed' or category == 'unfinished':
-            data = completed if category == 'completed' else unfinished
+        elif CATEGORY == 'completed' or CATEGORY == 'unfinished':
+            data = completed if CATEGORY == 'completed' else unfinished
             lendata = len(data)
             end_page_num = lendata // 80 + 1
             if page > end_page_num:
@@ -706,13 +719,13 @@ async def level_process_data(
             plc = (topage // 5 + (0 if topage % 5 == 0 else 1)) * 109
             image = tricolor_gradient(1400, 240 + plc + 120)
             dp = DrawScore(image)
-            im = dp.draw_category(category, data, page, end_page_num)
+            im = dp.draw_category(CATEGORY, data, page, end_page_num)
         else:
             lennotstarted = len(notplayed)
             pln = (lennotstarted // 20 + (0 if lennotstarted % 20 == 0 else 1)) * 65
             image = tricolor_gradient(1400, 240 + pln + 120)
             dp = DrawScore(image)
-            im = dp.draw_category(category, notplayed)
+            im = dp.draw_category(CATEGORY, notplayed)
         
         msg = MessageSegment.file_image(image_to_bytesio(im))
     except (UserNotFoundError, UserNotExistsError, UserDisabledQueryError) as e:
@@ -747,7 +760,7 @@ async def level_achievement_list_data(
             obj = await maiApi.query_user_get_dev(qqid=qqid, username=username)
             data = obj.records
         else:
-            version = list(set(_v for _v in list(plate_to_dx_version.values())))
+            version = list(set(_v for _v in list(DX_VERSION.values())))
             obj = await maiApi.query_user_plate(qqid=qqid, username=username, version=version)
             for _d in obj:
                 music = mai.total_list.by_id(_d.song_id)

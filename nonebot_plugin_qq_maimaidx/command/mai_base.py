@@ -1,5 +1,4 @@
 import re
-from typing import Union
 
 from nonebot import on_command
 from nonebot.adapters.qq import (
@@ -13,9 +12,9 @@ from nonebot.adapters.qq import (
 from nonebot.params import CommandArg, Depends
 from PIL import Image
 
-from ..config import Root, levelList, log, maiconfig
-from ..libraries.image import image_to_bytesio, music_picture
-from ..libraries.maimaidx_database import get_user, insert_user, update_user
+from ..config import LEVEL_LIST, Root, log, maiconfig
+from ..libraries._image import image_to_bytesio, song_chart
+from ..libraries.database.qq_database import get_user, insert_user, update_user
 from ..libraries.maimaidx_error import UserNotBindError
 from ..libraries.maimaidx_music import mai
 from ..libraries.maimaidx_music_info import draw_music_info
@@ -31,7 +30,9 @@ rise_score      = on_command('我要上分')
 rating_ranking  = on_command('查看排名')
 
 
-def get_qqid(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent, DirectMessageCreateEvent]) -> str:
+def get_qqid(
+    event: GroupAtMessageCreateEvent | AtMessageCreateEvent | DirectMessageCreateEvent
+) -> str:
     if isinstance(event, GroupAtMessageCreateEvent):
         return event.author.member_openid
     else:
@@ -54,7 +55,7 @@ async def _(event: GroupAtMessageCreateEvent, message: Message = CommandArg()):
 
 
 @guildid.handle()
-async def _(event: Union[AtMessageCreateEvent, DirectMessageCreateEvent]):
+async def _(event: AtMessageCreateEvent | DirectMessageCreateEvent):
     user_id = event.author.id
     if isinstance(event, AtMessageCreateEvent):
         await guildid.send(
@@ -73,7 +74,10 @@ async def _(event: MessageEvent):
 
 
 @mai_today.handle()
-async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], user_id: str = Depends(get_qqid)):
+async def _(
+    event: GroupAtMessageCreateEvent | AtMessageCreateEvent, 
+    user_id: str = Depends(get_qqid)
+):
     try:
         if isinstance(event, GroupAtMessageCreateEvent):
             user_id = get_user(user_id).QQID
@@ -106,16 +110,16 @@ async def _(event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], user_
             msg += f'忌 {wm_list[i]}\n'
     music = mai.total_list[h % len(mai.total_list)]
     ds = '/'.join([str(_) for _ in music.ds])
-    msg += f'{maiconfig.botName} Bot提醒您：打机时不要大力拍打或滑动哦\n今日推荐歌曲：'
+    msg += f'{maiconfig.botname} Bot提醒您：打机时不要大力拍打或滑动哦\n今日推荐歌曲：'
     msg += f'ID.{music.id} - {music.title}'
-    msg += MessageSegment.file_image(music_picture(music.id))
+    msg += MessageSegment.file_image(song_chart(music.id))
     msg += ds
     await mai_today.send(msg)
         
         
 @random_song.handle()
 async def _(
-    event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], 
+    event: GroupAtMessageCreateEvent | AtMessageCreateEvent, 
     message: Message = CommandArg(), 
     user_id: str = Depends(get_qqid)
 ):
@@ -153,7 +157,7 @@ async def _(
 
 @rise_score.handle()
 async def _(
-    event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], 
+    event: GroupAtMessageCreateEvent | AtMessageCreateEvent, 
     message: Message = CommandArg(), 
     user_id: str = Depends(get_qqid)
 ):
@@ -172,7 +176,7 @@ async def _(
         rating = match.group(1)
         score = int(match.group(2))
     
-    if rating and rating not in levelList:
+    if rating and rating not in LEVEL_LIST:
         await rise_score.finish('无此等级', reply_message=True)
 
     data = await rise_score_data(user_id, None, rating, score)
@@ -181,7 +185,7 @@ async def _(
 
 @rating_ranking.handle()
 async def _(
-    event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], 
+    event: GroupAtMessageCreateEvent | AtMessageCreateEvent, 
     message: Message = CommandArg()
 ):
     name = ''

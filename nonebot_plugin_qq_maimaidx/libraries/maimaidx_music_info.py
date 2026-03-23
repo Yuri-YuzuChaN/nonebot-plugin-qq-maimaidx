@@ -5,7 +5,7 @@ from .maimaidx_best_50 import *
 from .maimaidx_music import Music, mai
 
 
-def newbestscore(song_id: str, lv: int, value: int, bestlist: List[ChartInfo]) -> int:
+def newbestscore(song_id: str, lv: int, value: int, bestlist: list[ChartInfo]) -> int:
     for v in bestlist:
         if song_id == str(v.song_id) and lv == v.level_index:
             if value >= v.ra:
@@ -17,8 +17,8 @@ def newbestscore(song_id: str, lv: int, value: int, bestlist: List[ChartInfo]) -
 
 async def draw_music_info(
     music: Music, 
-    qqid: Optional[int] = None, 
-    user: Optional[UserInfo] = None
+    qqid: int | None = None, 
+    user: UserInfo | None = None
 ) -> MessageSegment:
     """
     查看谱面
@@ -32,14 +32,14 @@ async def draw_music_info(
     """
     calc = True
     isfull = True
-    bestlist: List[ChartInfo] = []
+    bestlist: list[ChartInfo] = []
     try:
         if qqid:
             if user is None:
                 player = await maiApi.query_user_b50(qqid=qqid)
             else:
                 player = user
-            if music.basic_info.version == list(plate_to_dx_version.values())[-1]:
+            if music.basic_info.version == list(DX_VERSION.values())[-1]:
                 bestlist = player.charts.dx
                 isfull = bool(len(bestlist) == 15)
             else:
@@ -52,12 +52,12 @@ async def draw_music_info(
     except Exception:
         calc = False
 
-    im = Image.open(maimaidir / 'song_bg.png').convert('RGBA')
+    im = Image.open(maimaidir / 'song_bg_radial.png').convert('RGBA')
     dr = ImageDraw.Draw(im)
     mr = DrawText(dr, SIYUAN)
     tb = DrawText(dr, TBFONT)
 
-    default_color = (124, 130, 255, 255)
+    default_color = (249, 62, 172, 255)
 
     im.alpha_composite(Image.open(maimaidir / 'logo.png').resize((249, 120)), (65, 25))
     if music.basic_info.is_new:
@@ -68,12 +68,12 @@ async def draw_music_info(
     im.alpha_composite(Image.open(maimaidir / f'{music.type}.png').resize((80, 30)), (410, 375))
 
     title = music.title
-    if coloumWidth(title) > 40:
-        title = changeColumnWidth(title, 39) + '...'
+    if coloum_width(title) > 40:
+        title = change_column_width(title, 39) + '...'
     mr.draw(405, 220, 28, title, default_color, 'lm')
     artist = music.basic_info.artist
-    if coloumWidth(artist) > 50:
-        artist = changeColumnWidth(artist, 49) + '...'
+    if coloum_width(artist) > 50:
+        artist = change_column_width(artist, 49) + '...'
     mr.draw(407, 265, 20, artist, default_color, 'lm')
     tb.draw(460, 330, 30, music.basic_info.bpm, default_color, 'lm')
     tb.draw(405, 435, 28, f'ID {music.id}', default_color, 'lm')
@@ -98,10 +98,10 @@ async def draw_music_info(
             tb.draw(556 + 119 * n, 600 + 73 * num, 30, c, default_color, 'mm')
         if num > 1:
             charter = music.charts[num].charter
-            if coloumWidth(charter) > 19:
-                charter = changeColumnWidth(charter, 18) + '...'
+            if coloum_width(charter) > 19:
+                charter = change_column_width(charter, 18) + '...'
             mr.draw(372, 1030 + 47 * (num - 2), 18, charter, default_color, 'mm')
-            ra = sorted([computeRa(music.ds[num], r) for r in achievementList[-6:]], reverse=True)
+            ra = sorted([computeRa(music.ds[num], r) for r in ACHIEVEMENT_LIST[-6:]], reverse=True)
             for _n, value in enumerate(ra):
                 size = 25
                 if not calc:
@@ -134,7 +134,7 @@ async def draw_music_play_data(qqid: int, music_id: str) -> Union[str, MessageSe
         `Union[str, MessageSegment]`
     """
     try:
-        diff: List[Union[None, PlayInfoDev, PlayInfoDefault]]
+        diff: list[Union[None, PlayInfoDev, PlayInfoDefault]]
         if maiconfig.maimaidxtoken:
             data = await maiApi.query_user_post_dev(qqid=qqid, music_id=music_id)
             if not data:
@@ -146,7 +146,7 @@ async def draw_music_play_data(qqid: int, music_id: str) -> Union[str, MessageSe
                 diff[_d.level_index] = _d
             dev = True
         else:
-            version = list(set(_v for _v in plate_to_dx_version.values()))
+            version = list(set(_v for _v in DX_VERSION.values()))
             data = await maiApi.query_user_plate(qqid=qqid, version=version)
 
             music = mai.total_list.by_id(music_id)
@@ -160,27 +160,27 @@ async def draw_music_play_data(qqid: int, music_id: str) -> Union[str, MessageSe
                 raise MusicNotPlayError
             dev = False
 
-        im = Image.open(maimaidir / 'info_bg.png').convert('RGBA')
+        im = Image.open(maimaidir / 'info_bg_radial.png').convert('RGBA')
     
         dr = ImageDraw.Draw(im)
         tb = DrawText(dr, TBFONT)
         mr = DrawText(dr, SIYUAN)
 
-        im.alpha_composite(Image.open(maimaidir / 'logo.png').resize((249, 120)), (0, 34))
+        im.alpha_composite(Image.open(maimaidir / 'logo.png').resize((249, 120)), (42, 34))
         cover = Image.open(music_picture(music_id))
         im.alpha_composite(cover.resize((300, 300)), (100, 260))
-        im.alpha_composite(Image.open(maimaidir / f'info-{category[music.basic_info.genre]}.png'), (100, 260))
+        im.alpha_composite(Image.open(maimaidir / f'info-{CATEGORY[music.basic_info.genre]}.png'), (100, 260))
         im.alpha_composite(Image.open(maimaidir / f'{music.basic_info.version}.png').resize((183, 90)), (295, 205))
         im.alpha_composite(Image.open(maimaidir / f'{music.type}.png').resize((55, 20)), (350, 560))
         
-        color = (124, 129, 255, 255)
+        color = (249, 62, 172, 255)
         artist = music.basic_info.artist
-        if coloumWidth(artist) > 58:
-            artist = changeColumnWidth(artist, 57) + '...'
+        if coloum_width(artist) > 58:
+            artist = change_column_width(artist, 57) + '...'
         mr.draw(255, 595, 12, artist, color, 'mm')
         title = music.title
-        if coloumWidth(title) > 38:
-            title = changeColumnWidth(title, 37) + '...'
+        if coloum_width(title) > 38:
+            title = change_column_width(title, 37) + '...'
         mr.draw(255, 622, 18, title, color, 'mm')
         tb.draw(160, 720, 22, music.id, color, 'mm')
         tb.draw(380, 720, 22, music.basic_info.bpm, color, 'mm')
@@ -194,7 +194,7 @@ async def draw_music_play_data(qqid: int, music_id: str) -> Union[str, MessageSe
                     dxscore = info.dxScore
                     _dxscore = sum(music.charts[num].notes) * 3
                     dxnum = dxScore(dxscore / _dxscore * 100)
-                    rating, rate = info.ra, score_Rank_l[info.rate]
+                    rating, rate = info.ra, RANK_MAP[info.rate]
                     if dxnum != 0:
                         im.alpha_composite(
                             Image.open(maimaidir / f'UI_GAM_Gauge_DXScoreIcon_0{dxnum}.png').resize((32, 19)), 
@@ -207,12 +207,12 @@ async def draw_music_play_data(qqid: int, music_id: str) -> Union[str, MessageSe
                 im.alpha_composite(Image.open(maimaidir / 'fcfs.png'), (965, 265 + y * num))
                 if info.fc:
                     im.alpha_composite(
-                        Image.open(maimaidir / f'UI_CHR_PlayBonus_{fcl[info.fc]}.png').resize((65, 65)), 
+                        Image.open(maimaidir / f'UI_CHR_PlayBonus_{COMBO_MAP[info.fc]}.png').resize((65, 65)), 
                         (960, 261 + y * num)
                     )
                 if info.fs:
                     im.alpha_composite(
-                        Image.open(maimaidir / f'UI_CHR_PlayBonus_{fsl[info.fs]}.png').resize((65, 65)), 
+                        Image.open(maimaidir / f'UI_CHR_PlayBonus_{SYNC_MAP[info.fs]}.png').resize((65, 65)), 
                         (1025, 261 + y * num)
                     )
                 im.alpha_composite(Image.open(maimaidir / 'ra.png'), (1350, 405 + y * num))
@@ -241,9 +241,9 @@ async def draw_music_play_data(qqid: int, music_id: str) -> Union[str, MessageSe
     return msg
 
 
-def calc_achievements_fc(scorelist: Union[List[float], List[str]], lvlist_num: int, isfc: bool = False) -> int:
+def calc_achievements_fc(scorelist: Union[List[float], list[str]], lvlist_num: int, isfc: bool = False) -> int:
     r = -1
-    obj = range(4) if isfc else achievementList[-6:]
+    obj = range(4) if isfc else ACHIEVEMENT_LIST[-6:]
     for __f in obj:
         if len(list(filter(lambda x: x >= __f, scorelist))) == lvlist_num:
             r += 1
@@ -281,7 +281,7 @@ async def draw_rating_table(qqid: int, rating: str, isfc: bool = False) -> Union
         `Union[MessageSegment, str]`
     """
     try:
-        version = list(set(_v for _v in plate_to_dx_version.values()))
+        version = list(set(_v for _v in DX_VERSION.values()))
         obj = await maiApi.query_user_plate(qqid=qqid, version=version)
         
         statistics = {
@@ -304,7 +304,7 @@ async def draw_rating_table(qqid: int, rating: str, isfc: bool = False) -> Union
         }
         fromid = {}
         
-        sp = score_Rank[-6:]
+        sp = RANK_SP[-6:]
         for _d in obj:
             if _d.level != rating:
                 continue
@@ -323,18 +323,18 @@ async def draw_rating_table(qqid: int, rating: str, isfc: bool = False) -> Union
                 for _r in range(r_index + 1):
                     statistics[sp[_r]] += 1
             if _d.fc:
-                fc_index = combo_rank.index(_d.fc)
+                fc_index = COMBO_SP.index(_d.fc)
                 for _f in range(fc_index + 1):
-                    statistics[combo_rank[_f]] += 1
+                    statistics[COMBO_SP[_f]] += 1
             if _d.fs:
                 if _d.fs != 'sync':
-                    fs_index = sync_rank.index(_d.fs)
+                    fs_index = SYNC_D_SP.index(_d.fs)
                     for _s in range(fs_index + 1):
-                        statistics[sync_rank[_s]] += 1
+                        statistics[SYNC_D_SP[_s]] += 1
                 else:
                     statistics[_d.fs] += 1
 
-        achievements_fc_list: List[Union[float, List[float]]] = []
+        achievements_fc_list: list[Union[float, list[float]]] = []
         lvlist = mai.total_level_data[rating]
         lvnum = sum([len(v) for v in lvlist.values()])
         
@@ -386,15 +386,15 @@ async def draw_rating_table(qqid: int, rating: str, isfc: bool = False) -> Union
                         im.alpha_composite(rank, (x, y - 5))
                         continue
                     if _fc := fromid[music.id][music.lv]['fc']:
-                        achievements_fc_list.append(combo_rank.index(_fc))
-                        fc = Image.open(maimaidir / f'UI_MSS_MBase_Icon_{fcl[_fc]}.png').resize((50, 50))
+                        achievements_fc_list.append(COMBO_SP.index(_fc))
+                        fc = Image.open(maimaidir / f'UI_MSS_MBase_Icon_{COMBO_MAP[_fc]}.png').resize((50, 50))
                         im.alpha_composite(complete_bg, (x + 2, y - 18))
                         im.alpha_composite(fc, (x + 15, y - 12))
 
         if len(achievements_fc_list) == lvnum:
             r = calc_achievements_fc(achievements_fc_list, lvnum, isfc)
             if r != -1:
-                pic = fcl[combo_rank[r]] if isfc else score_Rank_l[score_Rank[-6:][r]]
+                pic = COMBO_MAP[COMBO_SP[r]] if isfc else RANK_MAP[RANK_SP[-6:][r]]
                 im.alpha_composite(Image.open(maimaidir / f'UI_MSS_Allclear_Icon_{pic}.png'), (40, 40))
         
         msg = MessageSegment.file_image(
@@ -422,14 +422,14 @@ async def draw_plate_table(qqid: int, version: str, plan: str) -> Union[str, Mes
         `Union[MessageSegment, str]`
     """
     try:
-        if version in platecn:
-            version = platecn[version]
-        ver, _ver = version_map.get(version, ([plate_to_dx_version[version]], version))
+        if version in PLATE_CN:
+            version = PLATE_CN[version]
+        ver, _ver = VERSION_MAP.get(version, ([DX_VERSION[version]], version))
   
         music_id_list = mai.total_plate_id_list[_ver]
         music = mai.total_list.by_id_list(music_id_list)
         plate_total_num = len(music_id_list)
-        playerdata: List[PlayInfoDefault] = []
+        playerdata: list[PlayInfoDefault] = []
         
         obj = await maiApi.query_user_plate(qqid=qqid, version=ver)
         for _d in obj:
@@ -440,7 +440,7 @@ async def draw_plate_table(qqid: int, version: str, plan: str) -> Union[str, Mes
             _d.ds = _music.ds[_d.level_index]
             playerdata.append(_d)
 
-        ra: Dict[str, Dict[str, List[Optional[PlayInfoDefault]]]] = {}
+        ra: Dict[str, Dict[str, list[Optional[PlayInfoDefault]]]] = {}
         """
         {
             "14+": {
@@ -477,7 +477,7 @@ async def draw_plate_table(qqid: int, version: str, plan: str) -> Union[str, Mes
             Image.open(platedir / f'{version}{"極" if plan == "极" else plan}.png').resize((1000, 161)), 
             (200, 35)
         )
-        lv: List[set[int]] = [set() for _ in range(number)]
+        lv: list[set[int]] = [set() for _ in range(number)]
         y = 245
         # if plan == '者':
         #     for level in ra:
@@ -489,10 +489,10 @@ async def draw_plate_table(qqid: int, version: str, plan: str) -> Union[str, Mes
         #                 y += 115
         #             else:
         #                 x += 115
-        #             f: List[int] = []
+        #             f: list[int] = []
         #             for num, play in enumerate(ra[level][_id]):
         #                 if play.achievements or not play.achievements >= 80: continue
-        #                 fc = Image.open(maimaidir / f'UI_MSS_MBase_Icon_{fcl[play.fc]}.png')
+        #                 fc = Image.open(maimaidir / f'UI_MSS_MBase_Icon_{COMBO_MAP[play.fc]}.png')
         #                 im.alpha_composite(fc, (x, y))
         #                 f.append(n)
         #             for n in f:
@@ -507,12 +507,12 @@ async def draw_plate_table(qqid: int, version: str, plan: str) -> Union[str, Mes
                         y += 115
                     else:
                         x += 115
-                    f: List[int] = []
+                    f: list[int] = []
                     for n, play in enumerate(ra[level][_id]):
                         if play is None or not play.fc: continue
                         if n == 3:
                             im.alpha_composite(complete_bg, (x, y))
-                            fc = Image.open(maimaidir / f'UI_CHR_PlayBonus_{fcl[play.fc]}.png').resize((75, 75))
+                            fc = Image.open(maimaidir / f'UI_CHR_PlayBonus_{COMBO_MAP[play.fc]}.png').resize((75, 75))
                             im.alpha_composite(fc, (x + 13, y + 3))
                         lv[n].add(play.song_id)
                         f.append(n)
@@ -528,7 +528,7 @@ async def draw_plate_table(qqid: int, version: str, plan: str) -> Union[str, Mes
                         y += 115
                     else:
                         x += 115
-                    f: List[int] = []
+                    f: list[int] = []
                     for n, play in enumerate(ra[level][_id]):
                         if play is None or play.achievements < 100: continue
                         if n == 3:
@@ -551,12 +551,12 @@ async def draw_plate_table(qqid: int, version: str, plan: str) -> Union[str, Mes
                         y += 115
                     else:
                         x += 115
-                    f: List[int] = []
+                    f: list[int] = []
                     for n, play in enumerate(ra[level][_id]):
                         if play is None or play.fc not in _fc: continue
                         if n == 3:
                             im.alpha_composite(complete_bg, (x, y))
-                            ap = Image.open(maimaidir / f'UI_CHR_PlayBonus_{fcl[play.fc]}.png').resize((75, 75))
+                            ap = Image.open(maimaidir / f'UI_CHR_PlayBonus_{COMBO_MAP[play.fc]}.png').resize((75, 75))
                             im.alpha_composite(ap, (x + 13, y + 3))
                         lv[n].add(play.song_id)
                         f.append(n)
@@ -573,13 +573,13 @@ async def draw_plate_table(qqid: int, version: str, plan: str) -> Union[str, Mes
                         y += 115
                     else:
                         x += 115
-                    f: List[int] = []
+                    f: list[int] = []
                     for n, play in enumerate(ra[level][_id]):
                         if play is None or play.fs not in fs:
                             continue
                         if n == 3:
                             im.alpha_composite(complete_bg, (x, y))
-                            fsd = Image.open(maimaidir / f'UI_CHR_PlayBonus_{fsl[play.fs]}.png').resize((75, 75))
+                            fsd = Image.open(maimaidir / f'UI_CHR_PlayBonus_{SYNC_MAP[play.fs]}.png').resize((75, 75))
                             im.alpha_composite(fsd, (x + 13, y + 3))
                         lv[n].add(play.song_id)
                         f.append(n)

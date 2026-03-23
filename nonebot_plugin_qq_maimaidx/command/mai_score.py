@@ -1,5 +1,4 @@
 from textwrap import dedent
-from typing import Union
 
 from nonebot import on_command
 from nonebot.adapters.qq import (
@@ -8,26 +7,28 @@ from nonebot.adapters.qq import (
     GroupAtMessageCreateEvent,
     Message,
 )
+from nonebot.matcher import Matcher
 from nonebot.params import CommandArg, Depends
 
-from ..libraries.maimaidx_best_50 import generate
-from ..libraries.maimaidx_database import get_user
-from ..libraries.maimaidx_error import UserNotBindError
-from ..libraries.maimaidx_music import mai
-from ..libraries.maimaidx_music_info import draw_music_play_data
-from ..libraries.maimaidx_player_score import music_global_data
+from ..libraries.clients.exceptions import UserNotBindError
+from ..libraries.clients.lxns.models.oauth import BaseToken
+from ..libraries.database.lxns_database import get_user as lxuser
+from ..libraries.database.qq_database import get_user as qquser
+from ..libraries.search import draw_song_galobal_data
+from ..libraries.search_df import draw_df_best50, draw_df_play_data
+from ..libraries.search_lxns import draw_lxns_best50, draw_lxns_play_data
+from ..libraries.service import mai
 
-best50  = on_command('b50')
-minfo   = on_command('minfo')
-ginfo   = on_command('ginfo')
+dfb50   = on_command("b50")
+lxb50   = on_command("lx50")
+info    = on_command("info")
+dfinfo  = on_command("dfinfo")
+lxinfo  = on_command("lxinfo")
+ginfo   = on_command("ginfo")
 
 
 def get_qqid(
-    event: Union[
-        GroupAtMessageCreateEvent, 
-        AtMessageCreateEvent, 
-        DirectMessageCreateEvent
-    ]
+    event: AtMessageCreateEvent | GroupAtMessageCreateEvent | DirectMessageCreateEvent
 ) -> str:
     if isinstance(event, GroupAtMessageCreateEvent):
         return event.author.member_openid
@@ -35,100 +36,122 @@ def get_qqid(
         return event.author.id
     
 
-@best50.handle()
+@dfb50.handle()
+@lxb50.handle()
 async def _(
-    event: Union[AtMessageCreateEvent, GroupAtMessageCreateEvent], 
+    matcher: Matcher,
+    event: AtMessageCreateEvent | GroupAtMessageCreateEvent, 
     message: Message = CommandArg(), 
     user_id: str = Depends(get_qqid)
 ):
     try:
         username = message.extract_plain_text().strip()
         icon = None
-        if isinstance(event, GroupAtMessageCreateEvent) and not username:
-            user_id = get_user(user_id).QQID
         if isinstance(event, AtMessageCreateEvent) and not username:
             icon = event.author.avatar
-        pic = await generate(user_id, username, icon)
-        await best50.send(pic)
+        if isinstance(matcher, dfb50):
+            if isinstance(event, GroupAtMessageCreateEvent) and not username:
+                user_id = (await qquser(user_id)).QQID
+            result = await draw_df_best50(user_id, username, icon)
+        else:
+            user = await lxuser(user_id)
+            token = BaseToken(
+                access_token=user.access_token, 
+                refresh_token=user.refresh_token
+            )
+            result = await draw_lxns_best50(user.qqid, token)
     except UserNotBindError as e:
-        await best50.send(str(e))
+        result = str(e)
+    await matcher.send(result)
 
 
-@minfo.handle()
+@info.handle()
+@dfinfo.handle()
+@lxinfo.handle()
 async def _(
-    event: Union[GroupAtMessageCreateEvent, AtMessageCreateEvent], 
+    matcher: Matcher,
+    event: AtMessageCreateEvent | GroupAtMessageCreateEvent, 
     message: Message = CommandArg(), 
     user_id: str = Depends(get_qqid)
 ):
     try:
-        if isinstance(event, GroupAtMessageCreateEvent):
-            user_id = get_user(user_id).QQID
-        args = message.extract_plain_text().strip()
-        if not args:
-            await minfo.finish('请输入曲目id或曲名')
-
-        if mai.total_list.by_id(args):
-            music_id = args
-        elif by_t := mai.total_list.by_title(args):
-            music_id = by_t.id
-        else:
-            aliases = mai.total_alias_list.by_alias(args)
-            if not aliases:
-                await minfo.finish('未找到曲目')
-            elif len(aliases) != 1:
-                msg = '找到相同别名的曲目，请使用以下ID查询：\n'
-                for music_id in aliases:
-                    msg += f'{music_id.SongID}：{music_id.Name}\n'
-                await minfo.finish(msg.strip())
-            else:
-                music_id = str(aliases[0].SongID)
+        data = message.extract_plain_text().strip()
+        if not data:
+            await matcher.finish("请输入曲目id或曲名")
         
-        pic = await draw_music_play_data(user_id, music_id)
-        await minfo.send(pic)
+        if data.isdigit() and mai.total_list.by_id(int(data)):
+            song_id = data
+        elif by_t := mai.total_list.by_name(data):
+            song_id = by_t.song_id
+        else:
+            aliases = mai.total_alias_list.by_alias(data)
+            if not aliases:
+                await matcher.finish("未找到曲目")
+            elif len(aliases) != 1:
+                msg = "找到相同别名的曲目，请使用以下ID查询：\n"
+                for alias in aliases:
+                    msg += f"{alias.song_id}：{alias.alias[0]}\n"
+                await matcher.finish(msg.strip())
+            else:
+                song_id = aliases[0].song_id
+        song = mai.total_list.by_id(int(song_id))
+        
+        if isinstance(matcher, dfinfo):
+            if isinstance(event, GroupAtMessageCreateEvent):
+                user_id = (await qquser(user_id)).QQID
+            result = await draw_df_play_data(user_id, song)
+        else:
+            user = await lxuser(user_id)
+            token = BaseToken(
+                access_token=user.access_token, 
+                refresh_token=user.refresh_token
+            )
+            result = await draw_lxns_play_data(song, token)
     except UserNotBindError as e:
-        await minfo.send(str(e))
+        result = str(e)
+    await matcher.send(result)
 
 
 @ginfo.handle()
 async def _(message: Message = CommandArg()):
     args = message.extract_plain_text().strip()
     if not args:
-        await ginfo.finish('请输入曲目id或曲名')
-    if args[0] not in '绿黄红紫白':
+        await ginfo.finish("请输入曲目id或曲名")
+    if args[0] not in "绿黄红紫白":
         level_index = 3
     else:
-        level_index = '绿黄红紫白'.index(args[0])
+        level_index = "绿黄红紫白".index(args[0])
         args = args[1:].strip()
         if not args:
-            await ginfo.finish('请输入曲目id或曲名')
+            await ginfo.finish("请输入曲目id或曲名")
     if mai.total_list.by_id(args):
         id = args
-    elif by_t := mai.total_list.by_title(args):
-        id = by_t.id
+    elif by_t := mai.total_list.by_name(args):
+        id = by_t.song_id
     else:
         alias = mai.total_alias_list.by_alias(args)
         if not alias:
-            await ginfo.finish('未找到曲目')
+            await ginfo.finish("未找到曲目")
         elif len(alias) != 1:
-            msg = '找到相同别名的曲目，请使用以下ID查询：\n'
+            msg = "找到相同别名的曲目，请使用以下ID查询：\n"
             for songs in alias:
-                msg += f'{songs.SongID}：{songs.Name}\n'
+                msg += f"{songs.song_id}：{songs.alias[0]}\n"
             await ginfo.finish(msg.strip())
         else:
-            id = str(alias[0].SongID)
+            id = str(alias[0].song_id)
     
-    music = mai.total_list.by_id(id)
-    if not music.stats:
-        await ginfo.finish('该乐曲还没有统计信息')
-    if len(music.ds) == 4 and level_index == 4:
-        await ginfo.finish('该乐曲没有这个等级')
-    if not music.stats[level_index]:
-        await ginfo.finish('该等级没有统计信息')
-    stats = music.stats[level_index]
-    data = await music_global_data(music, level_index) + dedent(f'''\
+    song = mai.total_list.by_id(id)
+    stats = song.difficulties[level_index].stats
+    
+    if len(song.difficulties) == 4 and level_index == 4:
+        await ginfo.finish("该乐曲没有这个等级")
+    if not song.difficulties[level_index]:
+        await ginfo.finish("该等级没有统计信息")
+
+    data = await draw_song_galobal_data(song, level_index) + dedent(f"""\
         游玩次数：{round(stats.cnt)}
         拟合难度：{stats.fit_diff:.2f}
         平均达成率：{stats.avg:.2f}%
         平均 DX 分数：{stats.avg_dx:.1f}
-        谱面成绩标准差：{stats.std_dev:.2f}''')
+        谱面成绩标准差：{stats.std_dev:.2f}""")
     await ginfo.send(data)
