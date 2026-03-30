@@ -51,7 +51,9 @@ async def get_music():
     log.success("maimai数据获取完成")
     
     update = UpdateTable()
-    await update.update_level_15_rating_table()
+    # await update.update_rating_table()
+    # await update.update_level_15_rating_table()
+    await update.update_wu_plate_table()
 
 
 scheduler.add_job(mai.update, "cron", hour=4)

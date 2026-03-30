@@ -36,14 +36,14 @@ class MusicList(RootModel):
         return dict(result)
     
     def by_level_list(self) -> dict[str, dict[str, list[SimpleSong]]]:
-        result = defaultdict(lambda: defaultdict(list))
+        temp_result = defaultdict(lambda: defaultdict(list))
         for song in self.root:
             for diff in song.difficulties:
-                if diff.level_value < 7:
+                if "?" in diff.level or diff.level_value < 7:
                     continue
                 
                 key = f"{diff.level_value:.1f}"
-                result[diff.level][key].append(
+                temp_result[diff.level][key].append(
                     SimpleSong(
                         song_id=song.song_id,
                         version_str=song.version_str,
@@ -52,6 +52,17 @@ class MusicList(RootModel):
                         difficulties=diff
                     )
                 )
+        result = {}
+
+        def lv_sort_func(lv: str):
+            v = float(lv.rstrip("+"))
+            return (v, 1) if "+" in lv else (v, 0)
+        
+        sorted_lvs = sorted(temp_result.keys(), key=lv_sort_func, reverse=True)
+
+        for lv in sorted_lvs:
+            sorted_keys = sorted(temp_result[lv].keys(), key=lambda x: float(x), reverse=True)
+            result[lv] = {k: temp_result[lv][k] for k in sorted_keys}
         
         return result
     

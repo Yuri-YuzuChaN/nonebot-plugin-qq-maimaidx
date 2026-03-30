@@ -179,7 +179,7 @@ DX_VERSION = {
     "彩": "maimai でらっくす PRiSM PLUS"
 }
 VERSION_MAP = {
-    "真": ([DX_VERSION["真"], DX_VERSION["初"]], "真"),
+    "真": ([SD_VERSION["真"], SD_VERSION["初"]], "真"),
     "超": ([SD_VERSION["超"]], "超"),
     "檄": ([SD_VERSION["檄"]], "檄"),
     "橙": ([SD_VERSION["橙"]], "橙"),
