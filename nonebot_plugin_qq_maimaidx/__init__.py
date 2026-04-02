@@ -54,6 +54,7 @@ async def get_music():
     # await update.update_rating_table()
     # await update.update_level_15_rating_table()
     await update.update_wu_plate_table()
+    await update.update_plate_table()
 
 
 scheduler.add_job(mai.update, "cron", hour=4)

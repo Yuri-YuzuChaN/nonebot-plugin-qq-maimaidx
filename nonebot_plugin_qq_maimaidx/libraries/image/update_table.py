@@ -1,8 +1,7 @@
 import time
-import traceback
 
 import aiofiles
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter
 
 from ...config import *
 from ..domain.models.song import Song
@@ -19,8 +18,8 @@ class UpdateTable:
     }
     _dx_small_bg    = _type_bg["DX"].resize((44, 16))
     _complete_bg    = Image.open(pic_dir / "complete.png").convert("RGBA")
-    _id_bg          = Image.new("RGBA", (100, 20), (124, 129, 255, 255))
-    _wu_id_bg       = Image.new("RGBA", (80, 15), (124, 129, 255, 255))
+    _id_bg          = Image.new("RGBA", (80, 15), (124, 129, 255, 255))
+    _wu_id_bg       = Image.new("RGBA", (80, 15), (159, 81, 220, 255))
     _wu_rms_id_bg   = Image.new("RGBA", (80, 15), (219, 170, 255, 255))
     _diff_bg        = [
         Image.new("RGBA", (75, 15), color) for color in ScoreBaseImage._bg_color
@@ -32,8 +31,8 @@ class UpdateTable:
         self.level_list = LEVEL_LIST[6:]
         self.version_list = list(_ for _ in DX_VERSION.keys())[1:]
     
-    def _generate_rating_bg(self, height: int) -> Image.Image:
-        """生成背景"""
+    def _generate_bg(self, height: int, separator_height: int) -> Image.Image:
+        """生成定数表背景"""
         im = tricolor_gradient_prism_plus(1400, height)
         im.alpha_composite(ScoreBaseImage._aurora_bg)
         im.alpha_composite(ScoreBaseImage._shines_bg, (11, 6))
@@ -41,7 +40,7 @@ class UpdateTable:
         im.alpha_composite(ScoreBaseImage._rainbow_bottom_bg, (122, height - 305))
         for h in range((height // 358) + 1):
             im.alpha_composite(ScoreBaseImage._pattern_bg, (0, (358 + 7) * h))
-        im.alpha_composite(ScoreBaseImage._separator_bg, (100, 200))
+        im.alpha_composite(ScoreBaseImage._separator_bg, (100, separator_height))
         return im
     
     async def _save_image(self, im: Image.Image, path: Path):
@@ -59,7 +58,7 @@ class UpdateTable:
         lines = (count // 3) + (1 if count % 3 else 0)
         height = 650 + lines * 450
         
-        im = self._generate_rating_bg(height)
+        im = self._generate_bg(height, 200)
         
         dr = ImageDraw.Draw(im)
         fot = DrawText(dr, FOTNEWRODIN)
@@ -132,7 +131,7 @@ class UpdateTable:
             `lines` 为行数
             `lines_height` 为各等级曲绘和间隔总和高度
             """
-            im = self._generate_rating_bg(height)
+            im = self._generate_bg(height, 200)
 
             dr = ImageDraw.Draw(im)
             ts = DrawText(dr, TBFONT)
@@ -195,8 +194,135 @@ class UpdateTable:
         song_list = mai.total_list.by_id_list(song_id_list)
         return song_list
     
+    def _generate_frosted_card(
+        self, 
+        im: Image.Image,
+        box: tuple[int, int, int, int],
+        shadow_offset: tuple[int, int] = (15, 15),
+    ) -> Image.Image:
+        """绘制毛玻璃"""
+        roi = im.crop(box)
+        roi_w, roi_h = roi.size
+        
+        frosted = roi.filter(ImageFilter.GaussianBlur(4))
+        white_layer = Image.new("RGBA", (roi_w, roi_h), (255, 255, 255, 100))
+        card = Image.alpha_composite(frosted, white_layer)
+        
+        mask = Image.new("L", (roi_w, roi_h), 0)
+        draw = ImageDraw.Draw(mask)
+        draw.rounded_rectangle((0, 0, roi_w, roi_h), radius=25, fill=255)
+        
+        # 投影
+        shadow_w = roi_w + 5 * 2 + abs(shadow_offset[0])
+        shadow_h = roi_h + 5 * 2 + abs(shadow_offset[1])
+        shadow = Image.new("RGBA", (shadow_w, shadow_h), (0, 0, 0, 0))
+        
+        draw_shadow = ImageDraw.Draw(shadow)
+        draw_shadow.rounded_rectangle(
+            (15, 15, 15 + roi_w, 15 + roi_h),
+            radius=25,
+            fill=(0, 0, 0, 50)
+        )
+        shadow_layer = shadow.filter(ImageFilter.GaussianBlur(3))
+        
+        temp_layer = Image.new("RGBA", im.size, (0, 0, 0, 0))
+        shadow_pos = (
+            box[0] + shadow_offset[0] - 15,
+            box[1] + shadow_offset[1] - 15
+        )
+        temp_layer.paste(shadow_layer, shadow_pos)
+        
+        
+        temp_layer.paste(card, (box[0], box[1]), mask=mask)
+        
+        new_im = Image.alpha_composite(im, temp_layer)
+        return new_im
+    
+    def _draw_plate(
+        self, 
+        level_dict: dict[str, list[Song]], 
+        remaster_song_list: list[Song] | None = None,
+        pages: int | None = None
+    ) -> Image.Image:
+        """
+        绘制所有曲绘
+        
+        Params:
+            `level_dict`: 曲目数据字典
+            `remaster_song_list`: 白谱曲目数据列表
+            `pages`: 舞/霸者 牌子页数
+        Returns:
+            `Image.Image`
+        """
+        GRID_STEP = 96
+        START_X = 180
+        
+        current_y = 490
+        
+        for songs in level_dict.values():
+            if not songs:
+                continue
+            rows = (len(songs) - 1) // 12 + 1
+            current_y += rows * GRID_STEP + 30
+        
+        height = current_y + 180
+        
+        _im = self._generate_bg(height, 400)
+        im = self._generate_frosted_card(_im, (50, 444, 1350, current_y))
+        
+        dr = ImageDraw.Draw(im)
+        ts = DrawText(dr, TBFONT)
+        fot = DrawText(dr, FOTNEWRODIN)
+        
+        if pages is not None:
+            fot.draw(700, height - 140, 40, f"Pages {pages + 1}/2", self._font_color, "mm")
+        fot.draw(
+            700, height - 75, 30, 
+            f"Designed by Yuri-YuzuChaN & BlueDeer233.", 
+            self._font_color, "mm"
+        )
+        fot.draw(
+            700, height - 30, 30, 
+            f"Generated by {maiconfig.botname} BOT", 
+            self._font_color, "mm"
+        )
+        
+        start_y = 490
+        for ds, songs in level_dict.items():
+            if not songs:
+                continue
+            
+            songs.sort(key=lambda x: x.difficulties[-1].level_value, reverse=True)
+            fot.draw(70, start_y + 40, 40, ds, self._font_color, "lm", 4, (255, 255, 255, 255))
+            
+            max_row = 0
+            for num, song in enumerate(songs):
+                row, col = divmod(num, 12)
+                max_row = max(max_row, row)
+                
+                x = START_X + col * GRID_STEP
+                y = start_y + row * GRID_STEP
+                
+                cover = song_chart(song.song_id)
+                im.alpha_composite(Image.open(cover).resize((80, 80)), (x, y))
+                if remaster_song_list is not None:
+                    if song in remaster_song_list:
+                        _id_bg = self._wu_rms_id_bg
+                    else:
+                        _id_bg = self._wu_id_bg
+                else:
+                    _id_bg = self._id_bg
+                im.alpha_composite(_id_bg, (x, y + 65))
+                ts.draw(x + 40, y + 72, 16, song.song_id, anchor="mm")
+            start_y += (max_row + 1) * GRID_STEP + 30
+
+        return im
+    
+    
     async def update_wu_plate_table(self):
-        """更新「霸者」/「舞」牌"""
+        """
+        更新「霸者」/「舞」牌
+        """
         single_time = time.time()
         song_list = self._get_song_list("舞")
         song_id_list = mai.total_plate_id_list["舞ReMASTER"]
@@ -219,71 +345,16 @@ class UpdateTable:
         dict_higt = {k: all_level_dict[k] for k in keys[:idx]}
         dict_low = {k: all_level_dict[k] for k in keys[idx:]}
         
-        for n, level_dict in enumerate([dict_higt, dict_low]):
-            
-            lines = 0
-            interval = 0
-            for _ in level_dict:
-                song_num = len(level_dict[_])
-                if song_num == 0:
-                    continue
-                div, remainder = divmod(song_num, 12)
-                lines += div + (1 if remainder else 0)
-                interval += 1
-            
-            linesheight = 95 * lines + (interval - 1) * 15
-            height = 150 + linesheight + 360
-            
-            im = self._generate_rating_bg(height)
-            
-            dr = ImageDraw.Draw(im)
-            ts = DrawText(dr, TBFONT)
-            fot = DrawText(dr, FOTNEWRODIN)
-            
-            fot.draw(700, height - 100, 30, f"Pages {n + 1}", self._font_color, "mm")
-            fot.draw(
-                700, height - 75, 30, 
-                f"Designed by Yuri-YuzuChaN & BlueDeer233.", 
-                self._font_color, "mm"
-            )
-            fot.draw(
-                700, height - 30, 30, 
-                f"Generated by {maiconfig.botname} BOT", 
-                self._font_color, "mm"
-            )
-            GRID_STEP = 95
-            START_X = 130
-            
-            start_y = 245
-            for ds, songs in level_dict.items():
-                songs.sort(key=lambda x: x.difficulties[-1].level_value, reverse=True)
-                
-                if songs:
-                    start_y += 15
-                    ts.draw(55, start_y + 164, 35, ds, anchor="mm")
-                
-                max_row = 0
-                for num, song in enumerate(songs):
-                    row, col = divmod(num, 12)
-                    max_row = max(max_row, row)
-                    
-                    x = START_X + col * GRID_STEP
-                    y = start_y + row * GRID_STEP
-                    
-                    cover = song_chart(song.song_id)
-                    im.alpha_composite(Image.open(cover).resize((80, 80)), (x, y))
-                    if song.song_id in remaster_song_list:
-                        _id_bg = self._wu_rms_id_bg
-                    else:
-                        _id_bg = self._wu_id_bg
-                    im.alpha_composite(_id_bg, (x, y + 65))
-                    ts.draw(x + 40, y + 78, 20, song.song_id, anchor="mm")
-                start_y += (max_row + 1) * GRID_STEP + 15
-
-            await self._save_image(im, plate_dir / f"舞-{n + 1}.png")
+        for pages, level_dict in enumerate([dict_higt, dict_low]):
+            im = self._draw_plate(level_dict, remaster_song_list, pages)
+            await self._save_image(im, plate_dir / f"舞-{pages + 1}.png")
+        
         log.info(f"舞代完成表更新完成，耗时：{time.time() - single_time:.3f}s")
     
     async def update_plate_table(self):
+        """
+        更新版本牌子
+        """
         all_time = 0
         for name in self.version_list:
             single_time = time.time()
@@ -297,76 +368,9 @@ class UpdateTable:
             for s in song_list:
                 level_dict[s.difficulties[3].level].append(s)
 
-            lines = 0
-            interval = 0
-            for _ in level_dict:
-                song_num = len(level_dict[_])
-                if song_num == 0:
-                    continue
-                div, remainder = divmod(song_num, 10)
-                lines += div + (1 if remainder else 0)
-                interval += 1
-            
-            linesheight = 115 * lines + (interval - 1) * 15
-            """
-            `linesheight`: 各等级曲绘和间隔总和高度
-            
-                - `115` 为曲绘高度 `100` + 间隔 `15`
-                - `lines` 为行数
-                - `interval` 为各等级间隔行数
-                - `(interval - 1) * 15` 为各等级间隔高度，各等级之间间隔为 `30`，所以只加 `15`
-            """
-            height = 150 + linesheight + 360
-            """
-            `150` 为底部图片 `design` 高度 + 上下间隔高度
-            `linesheight` 为各等级曲绘和间隔总和高度
-            `360` 为顶部图片 `` 高度 + 上下间隔高度
-            """
-            im = self._generate_rating_bg(height)
-            
-            dr = ImageDraw.Draw(im)
-            ts = DrawText(dr, TBFONT)
-            fot = DrawText(dr, FOTNEWRODIN)
-            
-            fot.draw(
-                700, height - 75, 30, 
-                f"Designed by Yuri-YuzuChaN & BlueDeer233.", 
-                self._font_color, "mm"
-            )
-            fot.draw(
-                700, height - 30, 30, 
-                f"Generated by {maiconfig.botname} BOT", 
-                self._font_color, "mm"
-            )
-            
-            GRID_STEP = 115
-            START_X = 200
-            
-            start_y = 245
-            for ds, songs in level_dict.items():
-                songs.sort(key=lambda x: x.difficulties[3].level_value, reverse=True)
-                
-                if songs:
-                    start_y += 15
-                    im.alpha_composite(ScoreBaseImage._level_bg, (65, start_y + 115))
-                    ts.draw(113, start_y + 164, 35, ds, anchor="mm")
-                x = 200
-                
-                max_row = 0
-                for num, song in enumerate(songs):
-                    row, col = divmod(num, 10)
-                    max_row = max(max_row, row)
-                    
-                    x = START_X + col * GRID_STEP
-                    y = start_y + row * GRID_STEP
-                    
-                    cover = song_chart(song.song_id)
-                    im.alpha_composite(Image.open(cover).resize((100, 100)), (x, y))
-                    im.alpha_composite(self._id_bg, (x, y + 80))
-                    ts.draw(x + 50, y + 88, 20, song.song_id, anchor="mm")
-                start_y += (max_row + 1) * GRID_STEP + 30
-
+            im = self._draw_plate(level_dict)
             await self._save_image(im, plate_dir / f"{name}.png")
+            
             s_time = round(time.time() - single_time, 3)
             all_time += s_time
             log.info(f"{name}代牌子更新完成，耗时：{s_time}s")

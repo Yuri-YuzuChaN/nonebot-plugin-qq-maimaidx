@@ -66,6 +66,7 @@ lxns_alias_file     = data_dir / "lxns_music_alias.json"    # 别名暂存文件
 music_file          = data_dir / "music_data.json"          # 曲目暂存文件
 lxns_music_file     = data_dir / "lxns_music_data.json"     # 曲目暂存文件
 chart_file          = data_dir / "music_chart.json"         # 谱面数据暂存文件
+plate_file          = data_dir / "plate_data.json"          # 牌子数据暂存文件
 merge_music_file    = data_dir / "merge_music_data.json"    # 合并曲目数据文件
 merge_alias_file    = data_dir / "merge_music_alias.json"   # 合并曲目别名数据文件
 
