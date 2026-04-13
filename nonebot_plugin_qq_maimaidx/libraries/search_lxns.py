@@ -2,18 +2,21 @@ import traceback
 
 from nonebot.adapters.qq.message import LocalAttachment, MessageSegment
 
-from ..config import DX_VERSION, log
+from ..config import log
+from ..constants import DX_VERSION
 from .clients.exceptions import *
 from .clients.lxns.client import LxnsAPI
 from .clients.lxns.models.enum import SongType
 from .clients.lxns.models.oauth import *
-from .domain.models.service import ServiceName
-from .domain.models.song import Song
-from .domain.play_result import lxns_to_playresult
-from .domain.player import lxns_to_best50
 from .image.best50 import PlayerBest50
 from .image.chart import song_chart_info
 from .image.info import song_play_data
+from .image.table import DrawPlateTable, DrawRatingTable
+from .merge.models.score import PlayResult
+from .merge.models.service import ServiceName
+from .merge.models.song import Song
+from .merge.play_result import lxns_to_playresult
+from .merge.player import lxns_to_best50
 from .service import mai
 
 
@@ -90,4 +93,21 @@ async def draw_df_chart_info(song_id: int, token: BaseToken | None = None) -> Lo
         calc = False
     
     image = song_chart_info(song, calc, isfull, bestlist)
+    return MessageSegment.file_image(image)
+
+
+async def draw_rating_table(
+    rating: str, 
+    play_result: list[PlayResult], 
+    *, 
+    if_fc: bool = False
+) -> LocalAttachment:
+    table = DrawRatingTable(
+        rating, 
+        service=ServiceName.LXNS, 
+        play_result=play_result,
+        is_fc=if_fc
+    )
+    image = table.draw()
+    
     return MessageSegment.file_image(image)

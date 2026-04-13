@@ -1,7 +1,7 @@
 import math
 from typing import overload
 
-from ...config import ACHIEVEMENT_LIST, BASE_RA_SPP
+from ...constants import ACHIEVEMENT_LIST, BASE_RA_SPP
 
 
 def get_base_ra(achievements: float) -> float:

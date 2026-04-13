@@ -11,7 +11,7 @@ from nonebot.adapters.qq import (
 )
 from nonebot.params import CommandArg, Depends
 
-from ..config import DIFFS, SONGS_PER_PAGE
+from ..constants import DIFFS, SONGS_PER_PAGE
 from ..libraries.clients.exceptions import UserNotBindError
 from ..libraries.clients.yuzuchan.client import YuzuChaNAPI
 from ..libraries.database.qq_database import get_user

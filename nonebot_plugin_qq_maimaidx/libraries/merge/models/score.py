@@ -18,7 +18,14 @@ class Result(PlayNotResult):
     
     rating: int
     achievements: float
-    rate: RateType
+    rate: RateType | None = None
+    
+    @field_validator("rate", mode="before")
+    @classmethod
+    def rate_to_none(cls, v: str):
+        if v == "":
+            return None
+        return v
 
 
 class PlayResult(Result):
@@ -48,7 +55,7 @@ class RiseResult(Result):
     
     oldrating: int = 0
     oldachievements: float = 0
-    oldrate: str = 'D'
+    oldrate: str = "D"
 
 
 class RatingTableResult(BaseModel):

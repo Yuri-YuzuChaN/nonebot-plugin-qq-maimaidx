@@ -1,10 +1,11 @@
 import base64
 from io import BytesIO
+from pathlib import Path
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
-from ...config import SHANGGUMONO, Path, cover_dir
+from ...resources import SHANGGUMONO, cover_dir
 
 
 class DrawText:

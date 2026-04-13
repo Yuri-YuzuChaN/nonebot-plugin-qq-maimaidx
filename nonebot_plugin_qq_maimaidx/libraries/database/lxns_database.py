@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from sqlmodel import Field, SQLModel, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from ...config import data_dir
+from ...resources import data_dir
 from ..clients.lxns.models.oauth import OAuth2Token
 
 db = data_dir / "lxns_token.db"

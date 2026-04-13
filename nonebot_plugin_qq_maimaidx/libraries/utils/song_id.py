@@ -1,6 +1,6 @@
 from typing import Literal
 
-from ..domain.models.song import Difficulties, Song
+from ..merge.models.song import Difficulties, Song
 
 
 def get_charts_id(id: int) -> int:

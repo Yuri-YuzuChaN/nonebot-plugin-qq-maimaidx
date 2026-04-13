@@ -1,8 +1,8 @@
 from ...config import log, lxnsconfig
-from ..domain.alias_list import AliasList
-from ..domain.merge import merge_alias_data, merge_music_data
-from ..domain.models.song import SimpleSong
-from ..domain.music_list import MusicList
+from ..merge import merge_alias_data, merge_music_data
+from ..merge.alias_list import AliasList
+from ..merge.models.song import SimpleSong
+from ..merge.music_list import MusicList
 from .diving_fish import get_music_list
 from .lxns import get_music_aliases, get_music_data
 from .yuzuchan import get_music_alias_list, get_plate_data
@@ -31,7 +31,7 @@ class MaiMusic:
             log.success("成功获取「落雪」查分器曲目数据")
         else:
             lxns_data = None
-            log.warning("未开启「落雪」数据源")
+            log.warning("未配置落雪开发者Token，跳过获取「落雪」曲目数据源")
         
         log.info("正在合并曲目数据")
         self.total_list = await merge_music_data(
@@ -52,6 +52,7 @@ class MaiMusic:
             log.success("成功获取「落雪」别名数据")
         else:
             lxns_data = None
+            log.warning("未配置落雪开发者Token，跳过获取「落雪」别名数据源")
             
         log.info("正在合并别名数据")
         self.total_alias_list = await merge_alias_data(yuzu_data, lxns_data)

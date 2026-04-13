@@ -1,13 +1,16 @@
 from io import BytesIO
+from pathlib import Path
 
 from PIL import Image
 
-from ...config import *
+from ...config import maiconfig
+from ...constants import ACHIEVEMENT_LIST, BASE_RA_SPP
+from ...resources import pic_dir, static
 from ..clients.http import lxns_assets, qqlogo
 from ..clients.lxns.models.collection import Collection
-from ..domain.models.best50 import Best50
-from ..domain.models.player import Player
-from ..domain.models.service import ServiceName
+from ..merge.models.best50 import Best50
+from ..merge.models.player import Player
+from ..merge.models.service import ServiceName
 from .base import ScoreBaseImage
 from .tools import image_to_bytesio
 

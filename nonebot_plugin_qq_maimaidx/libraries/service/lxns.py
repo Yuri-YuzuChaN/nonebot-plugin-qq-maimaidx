@@ -1,4 +1,4 @@
-from ...config import lxns_alias_file, lxns_music_file
+from ...resources import lxns_alias_file, lxns_music_file
 from ..clients.lxns.client import LxnsAPI
 from ..clients.lxns.models.music import Aliases, Songs
 from ..tool import openfile, writefile

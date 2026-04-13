@@ -1,7 +1,8 @@
 import asyncio
 from textwrap import dedent
 
-from ...config import chart_file, log, music_file
+from ...config import log
+from ...resources import chart_file, music_file
 from ..clients.divingfish.client import DivingFishAPI
 from ..clients.divingfish.models.music import *
 from ..clients.divingfish.models.score import *

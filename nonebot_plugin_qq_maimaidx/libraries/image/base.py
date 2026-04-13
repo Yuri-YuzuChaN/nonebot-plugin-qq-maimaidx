@@ -1,8 +1,9 @@
 from PIL import Image, ImageDraw
 
-from ...config import *
+from ...constants import COMBO_MAP, RANK_MAP, SYNC_MAP
+from ...resources import FOTNEWRODIN, SIYUAN, TBFONT, pic_dir
 from ..clients.lxns.models.enum import SongType
-from ..domain.models.score import PlayResult
+from ..merge.models.score import PlayResult
 from ..service import mai
 from ..utils.calc import calc_ds, dx_score
 from .tools import DrawText, song_chart
@@ -85,7 +86,7 @@ class ScoreBaseImage:
         Image.open(pic_dir / "rise_score_remaster.png")
     ]
     _title_bg           = Image.open(pic_dir / "title.png")
-    _title_lengthen_bg  = Image.open(pic_dir / "title-lengthen.png")
+    _title_lengthen_bg  = Image.open(pic_dir / "title_lengthen.png")
     _design_circle_bg   = Image.open(pic_dir / "design_circle.png")
     _design_prism_bg    = Image.open(pic_dir / "design_prism.png")
     _separator_bg       = Image.open(pic_dir / "separator.png")

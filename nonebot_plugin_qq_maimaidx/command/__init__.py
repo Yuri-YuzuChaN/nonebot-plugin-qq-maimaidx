@@ -2,5 +2,4 @@
 # from .mai_base import *
 from .mai_score import *
 from .mai_search import *
-
-# from .mai_table import *
+from .mai_table import *

@@ -2,17 +2,18 @@ import traceback
 
 from nonebot.adapters.qq.message import LocalAttachment, MessageSegment
 
-from ..config import DX_VERSION, PLATE_CN, VERSION_MAP, dfconfig, log
+from ..config import dfconfig, log
+from ..constants import DX_VERSION, PLATE_CN, VERSION_MAP
 from .clients.divingfish.client import DivingFishAPI
 from .clients.exceptions import *
-from .domain.models.service import ServiceName
-from .domain.models.song import Song
-from .domain.play_result import df_to_playresult
-from .domain.player import df_to_best50, df_to_player
 from .image.best50 import PlayerBest50
 from .image.chart import song_chart_info
 from .image.info import song_play_data
 from .image.table import DrawPlateTable, DrawRatingTable
+from .merge.models.service import ServiceName
+from .merge.models.song import Song
+from .merge.play_result import df_to_playresult
+from .merge.player import df_to_best50, df_to_player
 
 
 async def draw_df_best50(
@@ -101,7 +102,7 @@ async def draw_df_chart_info(song: Song, *, qqid: int | None = None) -> LocalAtt
     return MessageSegment.file_image(image)
 
 
-async def draw_df_rating_table(qqid: int, rating: str, is_fc: bool) -> LocalAttachment:
+async def draw_df_rating_table(qqid: int, rating: str, plan: bool) -> LocalAttachment:
     """
     绘制定数表
     """
@@ -110,7 +111,12 @@ async def draw_df_rating_table(qqid: int, rating: str, is_fc: bool) -> LocalAtta
     data = await api.query_user_plate(version=version)
     play_result = df_to_playresult(data)
     
-    table = DrawRatingTable(ServiceName.DIVINGFISH, play_result, rating=rating, is_fc=is_fc)
+    table = DrawRatingTable(
+        rating, 
+        service=ServiceName.DIVINGFISH, 
+        play_result=play_result, 
+        plan=plan
+    )
     image = table.draw()
     return MessageSegment.file_image(image)
 
@@ -134,3 +140,15 @@ async def draw_df_plate_table(qqid: int, version: str, plan: str) -> LocalAttach
     )
     image = table.draw()
     return MessageSegment.file_image(image)
+
+
+async def draw_df_plate_process() -> LocalAttachment:
+    pass
+
+
+async def draw_df_level_process() -> LocalAttachment:
+    pass
+
+
+async def draw_df_level_achievement_list() -> LocalAttachment:
+    pass

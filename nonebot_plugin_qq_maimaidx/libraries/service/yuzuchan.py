@@ -1,6 +1,7 @@
 import asyncio
 
-from ...config import alias_file, log, plate_file
+from ...config import log
+from ...resources import alias_file, plate_file
 from ..clients.exceptions import ServerError
 from ..clients.yuzuchan.client import YuzuChaNAPI
 from ..clients.yuzuchan.models import Alias

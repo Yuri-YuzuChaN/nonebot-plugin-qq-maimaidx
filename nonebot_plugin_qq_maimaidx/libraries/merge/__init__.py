@@ -1,4 +1,4 @@
-from ...config import merge_alias_file, merge_music_file
+from ...resources import merge_alias_file, merge_music_file
 from ..clients.divingfish.models.music import Music, Notes1, Notes2, Stats
 from ..clients.lxns.models.music import Aliases, SongDifficulty, Songs
 from ..clients.yuzuchan.models import Alias as YuzuAlias
@@ -37,35 +37,40 @@ async def merge_music_data(
     """
     song_map: dict[int, Song] = {}
     
+    if diving_fish_list is None and lxns_list is None:
+        raise ValueError("")
+    
     # diving-fish
-    for raw in diving_fish_list:
-        song_id = int(raw.id)
-        song = Song(
-            song_id=song_id,
-            song_name=raw.title,
-            artist=raw.basic_info.artist,
-            genre=raw.basic_info.genre,
-            bpm=raw.basic_info.bpm,
-            version_str=raw.basic_info.version,
-            type=raw.type,
-            isnew=raw.basic_info.is_new
-        )
+    if diving_fish_list is not None:
         
-        for n, ds in enumerate(raw.ds):
-            charts = raw.charts[n]
-            notes = chart_notes_to_domain(charts.notes)
-            difficulties = Difficulties(
-                difficulty=n,
-                level=raw.level[n],
-                level_value=ds,
-                note_designer=charts.charter or "",
-                notes=notes,
-                dx_score=notes.total * 3,
-                stats=None
+        for raw in diving_fish_list:
+            song_id = int(raw.id)
+            song = Song(
+                song_id=song_id,
+                song_name=raw.title,
+                artist=raw.basic_info.artist,
+                genre=raw.basic_info.genre,
+                bpm=raw.basic_info.bpm,
+                version_str=raw.basic_info.version,
+                type=raw.type,
+                isnew=raw.basic_info.is_new
             )
-            song.difficulties.append(difficulties)
-        
-        song_map[song_id] = song
+            
+            for n, ds in enumerate(raw.ds):
+                charts = raw.charts[n]
+                notes = chart_notes_to_domain(charts.notes)
+                difficulties = Difficulties(
+                    difficulty=n,
+                    level=raw.level[n],
+                    level_value=ds,
+                    note_designer=charts.charter or "",
+                    notes=notes,
+                    dx_score=notes.total * 3,
+                    stats=None
+                )
+                song.difficulties.append(difficulties)
+            
+            song_map[song_id] = song
 
     # lxns
     if lxns_list is not None:
@@ -73,8 +78,6 @@ async def merge_music_data(
         def set_version(sid: int, type_: list[SongDifficulty]):
             song = song_map.get(sid)
             if song:
-                if sid == 1342:
-                    pass
                 song.version_int = type_[0].version
                 if len(song.difficulties) != len(type_):
                     _s = type_[-1]
@@ -109,8 +112,7 @@ async def merge_music_data(
             else:
                 if _raw.difficulties.dx:
                     set_version(song_id, _raw.difficulties.dx)
-
-
+    
     for sid, stat_list in stats_map.items():
         song = song_map.get(int(sid))
         if song is None:

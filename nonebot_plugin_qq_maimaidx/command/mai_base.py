@@ -12,14 +12,16 @@ from nonebot.adapters.qq import (
 from nonebot.params import CommandArg, Depends
 from PIL import Image
 
-from ..config import LEVEL_LIST, Root, log, maiconfig
-from ..libraries._image import image_to_bytesio, song_chart
+from ..config import log, maiconfig
+from ..constants import LEVEL_LIST
+from ..libraries.clients.exceptions import UserNotBindError
 from ..libraries.database.qq_database import get_user, insert_user, update_user
-from ..libraries.maimaidx_error import UserNotBindError
-from ..libraries.maimaidx_music import mai
+from ..libraries.image.tools import image_to_bytesio, song_chart
 from ..libraries.maimaidx_music_info import draw_music_info
 from ..libraries.maimaidx_player_score import rating_ranking_data, rise_score_data
+from ..libraries.service import mai
 from ..libraries.tool import qqhash
+from ..resources import Root
 
 bind            = on_command('绑定')
 guildid         = on_command('频道ID')
@@ -110,7 +112,7 @@ async def _(
             msg += f'忌 {wm_list[i]}\n'
     music = mai.total_list[h % len(mai.total_list)]
     ds = '/'.join([str(_) for _ in music.ds])
-    msg += f'{maiconfig.botname} Bot提醒您：打机时不要大力拍打或滑动哦\n今日推荐歌曲：'
+    msg += f'{maiconfig.bot_name} Bot提醒您：打机时不要大力拍打或滑动哦\n今日推荐歌曲：'
     msg += f'ID.{music.id} - {music.title}'
     msg += MessageSegment.file_image(song_chart(music.id))
     msg += ds

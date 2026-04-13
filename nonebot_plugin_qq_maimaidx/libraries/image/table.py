@@ -1,8 +1,9 @@
 from collections import defaultdict
 
-from ...config import *
-from ..domain.models.score import PlayResult, RatingTableResult
-from ..domain.models.service import ServiceName
+from ...constants import ACHIEVEMENT_LIST, COMBO_SP, RANK_SP, SYNC_D_SP
+from ...resources import plate_dir, rating_dir
+from ..merge.models.score import PlayResult, RatingTableResult
+from ..merge.models.service import ServiceName
 from ..utils.calc import compute_rating
 from .base import *
 from .tools import *
@@ -12,29 +13,29 @@ PlateResultMap = dict[str, dict[int, list[PlayResult | None]]]
 
 
 STATISTICS_KEYS = [
-    "clear", "sync", "s", "sp", "ss", "ssp", "sss", "sssp",
-    "fc", "fcp", "ap", "app", "fs", "fsp", "fsd", "fsdp"
+    "clear", "s", "sp", "ss", "ssp", "sss", "sssp", "sync",
+    "fc", "fcp", "ap", "app", "fs", "fsp", "fsd", "fsdp",
 ]
 
 
 class RatingGridConfig:
     
-    start_x = 158
+    start_x = 140
     """作图 `x` 轴起点"""
-    start_y = 118
+    start_y = 450
     """作图 `y` 轴起点"""
-    gap_x = 85
-    """`x` 轴间距"""
-    gap_y = 85
-    """`y` 轴间距"""
+    gap = 85
+    """间距"""
     row_count = 14
     """`x` 轴数量"""
-    stats_start_x = 824
-    """统计数据 `x` 轴起点"""
-    stats_start_y = 22
-    """统计数据 `y` 轴起点"""
-    stats_col_count = 8
-    """统计数据横向数量"""
+    stats_first_line_x = 534
+    """统计数据第一行 `x` 轴起点"""
+    stats_first_line_y = 238
+    """统计数据第一行 `y` 轴起点"""
+    stats_second_line_x = 292
+    """统计数据第二行 `x` 轴起点"""
+    stats_second_line_y = 323
+    """统计数据第二行 `y` 轴起点"""
 
 
 class PlateGridConfig:
@@ -45,7 +46,7 @@ class PlateGridConfig:
     """作图 `y` 轴起点"""
     gap = 115
     """`x` 和 `y` 轴间距"""
-    row_count = 10
+    row_count = 12
     """数量"""
     stats_start_x = 390
     """统计数据 `x` 轴起点"""
@@ -63,16 +64,26 @@ class DrawRatingTable:
     
     def __init__(
         self, 
-        service: ServiceName, 
-        play_result: list[PlayResult],
-        *,
-        rating: str | None = None,
-        is_fc: bool = False
+        rating: str, 
+        *, 
+        service: ServiceName | None = None, 
+        play_result: list[PlayResult] | None = None,
+        plan: bool = False, 
+        level_text: bool = False
     ):
+        """
+        Params:
+            `rating`: 定数
+            `service`: `ServiceName` 数据来源
+            `play_result`: 游玩数据列表
+            `plan`: 可选，是否指定目标
+            `level_text`: 可选，是否只画定数标题，例如：`Level.13+`
+        """
+        self.rating = rating
         self.service = service
         self.result = play_result
-        self.rating = rating
-        self.is_fc = is_fc
+        self.plan = plan
+        self.level_text = level_text
         
         self._rank_cache: dict[str, Image.Image] = {}
         self._fc_cache: dict[str, Image.Image] = {}
@@ -98,7 +109,7 @@ class DrawRatingTable:
         lvlist_num: int
     ) -> int:
         r = -1
-        thresholds = range(4) if self.is_fc else ACHIEVEMENT_LIST[-6:]
+        thresholds = range(4) if self.plan else ACHIEVEMENT_LIST[-6:]
         for _t in thresholds:
             count = sum(1 for s in score_list if s >= _t)
             if count == lvlist_num:
@@ -131,15 +142,15 @@ class DrawRatingTable:
                 for r in rank_sp[:rank_sp.index(rate) + 1]:
                     statistics[r] += 1
             
-            if _d.fc and _d.fc in COMBO_SP:
-                for f in COMBO_SP[:COMBO_SP.index(_d.fc) + 1]:
+            if _d.fc and _d.fc.value in COMBO_SP:
+                for f in COMBO_SP[:COMBO_SP.index(_d.fc.value) + 1]:
                     statistics[f] += 1
-                    
+            
             if _d.fs:
-                if _d.fs == "sync":
+                if _d.fs.value == "sync":
                     statistics["sync"] += 1
-                elif _d.fs in SYNC_D_SP:
-                    for s in SYNC_D_SP[:SYNC_D_SP.index(_d.fs) + 1]:
+                elif _d.fs.value in SYNC_D_SP:
+                    for s in SYNC_D_SP[:SYNC_D_SP.index(_d.fs.value) + 1]:
                         statistics[s] += 1
         
         return statistics, played_map
@@ -148,70 +159,93 @@ class DrawRatingTable:
         """
         绘制定数表
         """
+        im = Image.open(rating_dir / f"{self.rating}.png").convert("RGBA")
+        dr = ImageDraw.Draw(im)
+        tb = DrawText(dr, TBFONT)
+        fot = DrawText(dr, FOTNEWRODIN)
+        
+        font_color = (114, 188, 254, 255)
+        default_color = (124, 129, 255, 255)
+        
+        if self.level_text:
+            fot.draw(495, 220, 70, "Level.", font_color, "ld", 8, (255, 255, 255, 255))
+            fot.draw(750, 220, 100, self.rating, font_color, "ld", 8, (255, 255, 255, 255))
+            return image_to_bytesio(im)
+        
+        fot.draw(495, 160, 70, "Level.", font_color, "ld", 8, (255, 255, 255, 255))
+        fot.draw(750, 160, 100, self.rating, font_color, "ld", 8, (255, 255, 255, 255))
+        
         statistics, played_map = self._process_rating_table_data()
         
         lv_data = mai.total_level_data.get(self.rating)
         total_songs_count = sum(len(v) for v in lv_data.values())
-        achievements_fc_list: list[float | int] = []
+        achievements_or_fc_list: list[float | int] = []
         
-        im = Image.open(rating_dir / f"{self.rating}.png").convert("RGBA")
-        dr = ImageDraw.Draw(im)
-        sy = DrawText(dr, SIYUAN)
-        tb = DrawText(dr, TBFONT)
+        im.alpha_composite(Image.open(pic_dir / "complete.png").convert("RGBA"), (251, 190))
         
-        default_color = (124, 129, 255, 255)
+        tb.draw(
+            394, RatingGridConfig.stats_first_line_y, 30, 
+            f"{statistics['clear']}/{total_songs_count}", 
+            default_color, "mm", 5, (255, 255, 255, 255)
+        )
         
-        # im.alpha_composite(self.rating_bg, (600, 25))
-        sy.draw(305, 60, 65, f"Level.{self.rating}", default_color, "mm", 5, (255, 255, 255, 255))
-        sy.draw(305, 130, 65, "定数表", default_color, "mm", 5, (255, 255, 255, 255))
-        tb.draw(700, 130, 45, total_songs_count, default_color, "mm", 5, (255, 255, 255, 255))
-        
-        for n, key in enumerate(STATISTICS_KEYS):
-            row, col = divmod(n, RatingGridConfig.stats_col_count)
-            x = RatingGridConfig.stats_start_x + col * 64
-            y = RatingGridConfig.stats_start_y + row * 56
-            tb.draw(x, y, 20, statistics[key], default_color, "mm", 2, (255, 255, 255, 255))
+        for n, key in enumerate(STATISTICS_KEYS[1:]):
+            if n < 6:
+                col = n % 6
+                x = RatingGridConfig.stats_first_line_x + col * 102
+                y = RatingGridConfig.stats_first_line_y
+            else:
+                col = (n - 6) % 9
+                x = RatingGridConfig.stats_second_line_x + col * 102
+                y = RatingGridConfig.stats_second_line_y
+            tb.draw(x, y, 30, statistics[key], default_color, "mm", 2, (255, 255, 255, 255))
         
         current_y = RatingGridConfig.start_y
         for ra, songs in lv_data.items():
-            current_y += 20
             for num, song in enumerate(lv_data[ra]):
                 row, col = divmod(num, RatingGridConfig.row_count)
-                x = RatingGridConfig.start_x + col * RatingGridConfig.gap_x
-                y = current_y + row * RatingGridConfig.gap_y
+                x = RatingGridConfig.start_x + col * RatingGridConfig.gap
+                y = current_y + row * RatingGridConfig.gap
                 
-                record = played_map.get(song.song_id).get(song.difficulties.level)
+                _record = played_map.get(song.song_id)
+                if _record is None:
+                    continue
                 
+                record = _record.get(song.difficulties.difficulty)
                 if record is None:
                     continue
-                if not self.is_fc:
-                    achievements_fc_list.append(record.achievements)
+                
+                if not self.plan:
+                    achievements_or_fc_list.append(record.achievements)
                     bg = self.complete_bg if record.achievements >= 100 else self.unfinished_bg
-                    im.alpha_composite(bg, (x + 2, y - 18))
+                    im.alpha_composite(bg, (x + 1, y + 1))
                     
                     rate = compute_rating(
                         song.difficulties.level_value, 
                         record.achievements, 
                         onlyrate=True
                     )
-                    im.alpha_composite(self._get_rank_icon(rate).resize((78, 35)), (x, y - 5))
+                    im.alpha_composite(self._get_rank_icon(rate).resize((78, 35)), (x, y + 20))
                     continue
+                
                 if record.fc:
-                    achievements_fc_list.append(COMBO_SP.index(record.fc))
-                    im.alpha_composite(self.complete_bg, (x + 2, y - 18))
-                    im.alpha_composite(self._get_fc_icon(record.fc), (x + 15, y - 12))
-                        
+                    achievements_or_fc_list.append(COMBO_SP.index(record.fc))
+                    im.alpha_composite(self.complete_bg, (x + 1, y + 1))
+                    im.alpha_composite(self._get_fc_icon(record.fc), (x + 15, y + 13))
+            
             group_rows = (len(songs) - 1) // RatingGridConfig.row_count + 1
-            current_y += group_rows * RatingGridConfig.gap_y
+            current_y += group_rows * RatingGridConfig.gap + 30
 
-        if len(achievements_fc_list) == total_songs_count:
-            r = self._calc_achievements_fc(achievements_fc_list, total_songs_count)
+        if len(achievements_or_fc_list) == total_songs_count:
+            r = self._calc_achievements_fc(achievements_or_fc_list, total_songs_count)
             if r != -1:
-                pic = COMBO_MAP[COMBO_SP[r]] if self.is_fc else RANK_MAP[RANK_SP[-6:][r]]
+                pic = COMBO_MAP[COMBO_SP[r]] if self.plan else RANK_MAP[RANK_SP[-6:][r]]
                 im.alpha_composite(Image.open(pic_dir / f"UI_MSS_Allclear_Icon_{pic}.png"), (40, 40))
         
-        
-        final_im = im.resize((int(im.size[0] * 0.8), int(im.size[1] * 0.8)), Image.Resampling.LANCZOS)
+        final_im = im.resize(
+            (int(im.size[0] * 0.8), int(im.size[1] * 0.8)), 
+            Image.Resampling.LANCZOS
+        )
         return image_to_bytesio(final_im)
 
 
@@ -229,7 +263,7 @@ class DrawPlateTable:
         },
     }
     
-    finished_bg = [Image.open(pic_dir / f"t-{_}.png") for _ in range(4)]
+    finished_bg = [Image.open(pic_dir / f"t_{_}.png") for _ in range(4)]
     unfinished_bg = Image.open(pic_dir / "unfinished_bg_2.png")
     complete_bg = Image.open(pic_dir / "complete_bg_2.png")
     
