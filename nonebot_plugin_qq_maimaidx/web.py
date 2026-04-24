@@ -2,8 +2,8 @@ import nonebot
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
-from .libraries.image.update_table import *
-from .libraries.service import mai
+from .core.image.update_table import *
+from .core.service import mai
 
 app: FastAPI = nonebot.get_app()
 

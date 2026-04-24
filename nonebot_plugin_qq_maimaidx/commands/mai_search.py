@@ -12,13 +12,13 @@ from nonebot.adapters.qq import (
 from nonebot.params import CommandArg, Depends
 
 from ..constants import DIFFS, SONGS_PER_PAGE
-from ..libraries.clients.exceptions import UserNotBindError
-from ..libraries.clients.yuzuchan.client import YuzuChaNAPI
-from ..libraries.database.qq_database import get_user
-from ..libraries.image.tools import text_to_bytes_io
-from ..libraries.merge.models.service import ServiceName
-from ..libraries.search import draw_chart_info
-from ..libraries.service import mai
+from ..core.clients.exceptions import UserNotBindError
+from ..core.clients.yuzuchan.client import YuzuChaNAPI
+from ..core.database.qq_database import get_user
+from ..core.image.tools import text_to_bytes_io
+from ..core.merge.models.service import ServiceName
+from ..core.search import draw_chart_info
+from ..core.service import mai
 
 search_music        = on_command("查歌")
 search_base         = on_command("定数查歌")

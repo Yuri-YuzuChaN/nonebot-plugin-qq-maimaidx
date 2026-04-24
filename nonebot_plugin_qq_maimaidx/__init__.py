@@ -3,12 +3,12 @@ from pathlib import Path
 import nonebot
 from nonebot.plugin import PluginMetadata, require
 
-from .command import *
+from .commands import *
 from .config import BaseConfig, dfconfig, driver, log, maiconfig
-from .libraries.database.lxns_database import create_database as lxns_create
-from .libraries.database.qq_database import create_database as qq_create
-from .libraries.image.update_table import UpdateTable
-from .libraries.service import mai
+from .core.database.lxns_database import create_database as lxns_create
+from .core.database.qq_database import create_database as qq_create
+from .core.image.update_table import UpdateTable
+from .core.service import mai
 from .web import *
 
 scheduler = require("nonebot_plugin_apscheduler")

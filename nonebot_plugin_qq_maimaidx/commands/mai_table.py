@@ -10,10 +10,10 @@ from nonebot.adapters.qq import (
 from nonebot.params import CommandArg, Depends
 
 from ..constants import *
-from ..libraries.clients.exceptions import UserNotBindError
-from ..libraries.database.qq_database import get_user
-from ..libraries.merge.models.service import ServiceName
-from ..libraries.search import (
+from ..core.clients.exceptions import UserNotBindError
+from ..core.database.qq_database import get_user
+from ..core.merge.models.service import ServiceName
+from ..core.search import (
     draw_level_progress,
     draw_level_score_list,
     draw_plate_progress,

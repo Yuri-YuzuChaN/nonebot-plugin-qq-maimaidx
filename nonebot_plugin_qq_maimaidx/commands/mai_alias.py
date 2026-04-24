@@ -4,7 +4,7 @@ from nonebot import on_command
 from nonebot.adapters.qq import AtMessageCreateEvent, GroupAtMessageCreateEvent, Message
 from nonebot.params import CommandArg
 
-from ..libraries.service import mai
+from ..core.service import mai
 
 alias_song = on_command("查询别名")
 

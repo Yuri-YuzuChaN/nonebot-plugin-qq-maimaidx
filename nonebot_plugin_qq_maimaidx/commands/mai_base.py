@@ -14,11 +14,11 @@ from PIL import Image
 
 from ..config import log, maiconfig
 from ..constants import LEVEL_LIST
-from ..libraries.clients.exceptions import UserNotBindError
-from ..libraries.database.qq_database import get_user, insert_user, update_user
-from ..libraries.image.tools import image_to_bytesio, song_chart
-from ..libraries.service import mai
-from ..libraries.tool import qqhash
+from ..core.clients.exceptions import UserNotBindError
+from ..core.database.qq_database import get_user, insert_user, update_user
+from ..core.image.tools import image_to_bytesio, song_chart
+from ..core.service import mai
+from ..core.tool import qqhash
 from ..resources import Root
 
 bind            = on_command("绑定")

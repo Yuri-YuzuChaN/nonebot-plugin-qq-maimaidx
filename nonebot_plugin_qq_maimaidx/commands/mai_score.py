@@ -10,13 +10,13 @@ from nonebot.adapters.qq import (
 from nonebot.matcher import Matcher
 from nonebot.params import CommandArg, Depends
 
-from ..libraries.clients.exceptions import UserNotBindError
-from ..libraries.clients.lxns.models.oauth import BaseToken
-from ..libraries.database.lxns_database import get_user as lxuser
-from ..libraries.database.qq_database import get_user as qquser
-from ..libraries.merge.models.service import ServiceName
-from ..libraries.search import draw_best50, draw_play_data, draw_song_galobal_data
-from ..libraries.service import mai
+from ..core.clients.exceptions import UserNotBindError
+from ..core.clients.lxns.models.oauth import BaseToken
+from ..core.database.lxns_database import get_user as lxuser
+from ..core.database.qq_database import get_user as qquser
+from ..core.merge.models.service import ServiceName
+from ..core.search import draw_best50, draw_play_data, draw_song_galobal_data
+from ..core.service import mai
 
 dfb50   = on_command("b50")
 lxb50   = on_command("lx50")
