@@ -3,6 +3,7 @@ from PIL import Image, ImageDraw
 from ...constants import COMBO_MAP, RANK_MAP, SYNC_MAP
 from ...resources import FOTNEWRODIN, SIYUAN, TBFONT, pic_dir
 from ..merge.models.score import PlayedResult
+from ..merge.models.theme import Theme
 from ..service import mai
 from ..utils.calc import calc_ds, dx_score
 from .tools import DrawText, song_chart
@@ -43,6 +44,8 @@ def change_column_width(s: str, len: int) -> str:
 
 
 class ScoreBaseImage:
+    
+    theme = Theme.CIRCLE
     
     _default_text_color = (124, 129, 255, 255)
     _diff_text_color = [
@@ -86,41 +89,38 @@ class ScoreBaseImage:
         Image.open(pic_dir / "rise_score_master.png"),
         Image.open(pic_dir / "rise_score_remaster.png")
     ]
-    _title_bg           = Image.open(pic_dir / "title.png")
-    _title_lengthen_bg  = Image.open(pic_dir / "title_lengthen.png")
-    _design_circle_bg   = Image.open(pic_dir / "design_circle.png")
-    _design_prism_bg    = Image.open(pic_dir / "design_prism.png")
     _separator_bg       = Image.open(pic_dir / "separator.png")
     _chart_white_bg     = Image.open(pic_dir / "chart_white_bg.png")
-    _level_bg           = Image.open(pic_dir / "UI_CMN_Chara_Level_S_01.png")
     _cloud_bg           = Image.open(pic_dir / "rainbow.png").convert("RGBA")
     _rainbow_bottom_bg  = Image.open(pic_dir / "rainbow_bottom.png").convert("RGBA")
     _aurora_bg          = Image.open(pic_dir / "aurora.png").convert("RGBA")
     _shines_bg          = Image.open(pic_dir / "bg_shines.png").convert("RGBA")
     _pattern_bg         = Image.open(pic_dir / "pattern.png").convert("RGBA")
 
-    def __init__(self, image: Image.Image = None) -> None:
+    def __init__(self, image: Image.Image = None, theme: Theme = Theme.CIRCLE) -> None:
         self._im = image
+        self.theme = theme
         dr = ImageDraw.Draw(self._im)
         self._sy = DrawText(dr, SIYUAN)
         self._tb = DrawText(dr, TBFONT)
         self._fot = DrawText(dr, FOTNEWRODIN)
+        
+        self._title_bg           = Image.open(pic_dir / theme.value / "title.png")
+        self._title_lengthen_bg  = Image.open(pic_dir / theme.value / "title_lengthen.png")
     
     def whiledraw(
         self, 
         data: list[PlayedResult], 
         dx: bool = False, 
-        list_x: int = 0,
         list_y: int = 0
     ):
         gap = 114
         dx_step = 276
         start_x = 16
         
-        if list_x == 0 and list_y == 0:
+        if list_y == 0:
             initial_y = 1085 if dx else 235
         else:
-            start_x += 100
             initial_y = list_y
         for num, info in enumerate(data):
             row, col = divmod(num, 5)
@@ -130,25 +130,36 @@ class ScoreBaseImage:
             cover = Image.open(song_chart(info.song_id)).resize((75, 75))
             version = Image.open(pic_dir / f"{info.type.upper()}.png").resize((37, 14))
             if info.rate.islower():
-                rate = Image.open(pic_dir / f"UI_TTR_Rank_{RANK_MAP[info.rate]}.png").resize((63, 28))
+                rate = Image.open(
+                    pic_dir / self.theme.value / f"UI_TTR_Rank_{RANK_MAP[info.rate]}.png"
+                ).resize((63, 28))
             else:
-                rate = Image.open(pic_dir / f"UI_TTR_Rank_{info.rate}.png").resize((63, 28))
+                rate = Image.open(
+                    pic_dir / self.theme.value / f"UI_TTR_Rank_{info.rate}.png"
+                ).resize((63, 28))
 
             self._im.alpha_composite(self._diff_bg[info.level_index], (x, y))
             self._im.alpha_composite(cover, (x + 12, y + 12))
             self._im.alpha_composite(version, (x + 51, y + 91))
             self._im.alpha_composite(rate, (x + 92, y + 78))
             if info.fc:
-                fc = Image.open(pic_dir / f"UI_MSS_MBase_Icon_{COMBO_MAP[info.fc]}.png").resize((34, 34))
+                fc = Image.open(
+                    pic_dir / f"UI_MSS_MBase_Icon_{COMBO_MAP[info.fc]}.png"
+                ).resize((34, 34))
                 self._im.alpha_composite(fc, (x + 154, y + 77))
             if info.fs:
-                fs = Image.open(pic_dir / f"UI_MSS_MBase_Icon_{SYNC_MAP[info.fs]}.png").resize((34, 34))
+                fs = Image.open(
+                    pic_dir / f"UI_MSS_MBase_Icon_{SYNC_MAP[info.fs]}.png"
+                ).resize((34, 34))
                 self._im.alpha_composite(fs, (x + 185, y + 77))
             
             song = mai.total_list.by_id(info.song_id)
             dxscore = song.difficulties[info.level_index].dx_score
             if (dx_star := dx_score(info.dx_score / dxscore * 100)) != 0:
-                self._im.alpha_composite(self._dx_star_bg[dx_star].resize((47, 26)), (x + 217, y + 80))
+                self._im.alpha_composite(
+                    self._dx_star_bg[dx_star - 1].resize((47, 26)), 
+                    (x + 217, y + 80)
+                )
 
             self._tb.draw(
                 x + 26, y + 98, 13, info.song_id, 

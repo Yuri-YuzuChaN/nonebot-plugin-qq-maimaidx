@@ -4,7 +4,6 @@ from textwrap import dedent
 from nonebot import on_command
 from nonebot.adapters.qq import (
     AtMessageCreateEvent,
-    DirectMessageCreateEvent,
     GroupAtMessageCreateEvent,
     Message,
     MessageSegment,
@@ -12,30 +11,19 @@ from nonebot.adapters.qq import (
 from nonebot.params import CommandArg, Depends
 
 from ..constants import DIFFS, SONGS_PER_PAGE
-from ..core.clients.exceptions import UserNotBindError
-from ..core.clients.yuzuchan.client import YuzuChaNAPI
-from ..core.database.qq_database import get_user
+from ..core.database.qq import User
 from ..core.image.tools import text_to_bytes_io
-from ..core.merge.models.service import ServiceName
 from ..core.search import draw_chart_info
 from ..core.service import mai
+from .extra import get_user_db
 
 search_music        = on_command("查歌")
 search_base         = on_command("定数查歌")
 search_bpm          = on_command("bpm查歌")
 search_artist       = on_command("曲师查歌")
-search_designer      = on_command("谱师查歌")
+search_designer     = on_command("谱师查歌")
 search_alias_song   = on_command("别名查歌")
 query_chart         = on_command("id")
-
-
-def get_qqid(
-    event: GroupAtMessageCreateEvent | AtMessageCreateEvent | DirectMessageCreateEvent
-) -> str:
-    if isinstance(event, GroupAtMessageCreateEvent):
-        return event.author.member_openid
-    else:
-        return event.author.id
 
 
 def song_level(ds1: float, ds2: float) -> list[tuple[str, str, float, str]]:
@@ -62,13 +50,8 @@ def song_level(ds1: float, ds2: float) -> list[tuple[str, str, float, str]]:
 async def _(
     event: GroupAtMessageCreateEvent | AtMessageCreateEvent, 
     message: Message = CommandArg(), 
-    user_id: str = Depends(get_qqid)
+    user: User = Depends(get_user_db)
 ):
-    try:
-        if isinstance(event, GroupAtMessageCreateEvent):
-            user_id = (await get_user(user_id)).QQID
-    except UserNotBindError:
-        user_id = None
     name = message.extract_plain_text().strip()
     page = 1
     if not name:
@@ -79,7 +62,7 @@ async def _(
             "没有找到这样的乐曲。\n※ 如果是别名请使用「别名查歌」指令进行查询哦。"
         )
     if len(result) == 1:
-        await search_music.finish(await draw_chart_info(result[0], qqid=user_id))
+        await search_music.finish(await draw_chart_info(result[0], user))
     
     search_result = ""
     result.sort(key=lambda i: int(i.song_id))
@@ -256,13 +239,8 @@ async def _(
 @search_alias_song.handle()
 async def _(
     event: GroupAtMessageCreateEvent | AtMessageCreateEvent, 
-    message: Message = CommandArg(), user_id: str = Depends(get_qqid)
+    message: Message = CommandArg(), user: User = Depends(get_user_db)
 ):
-    try:
-        if isinstance(event, GroupAtMessageCreateEvent):
-            user_id = (await get_user(user_id)).QQID
-    except UserNotBindError:
-        user_id = None
     name = message.extract_plain_text().strip().lower()
     error_msg = f"未找到别名为「{name}」的歌曲"
     # 别名
@@ -285,7 +263,7 @@ async def _(
         else:
             song = mai.total_list.by_id(str(alias_data[0].song_id))
             if song:
-                msg = "您要找的是不是：" + await draw_chart_info(song, qqid=user_id)
+                msg = "您要找的是不是：" + await draw_chart_info(song, user)
             else:
                 msg = error_msg
             await search_alias_song.finish(msg)
@@ -293,12 +271,12 @@ async def _(
     # id
     if name.isdigit() and (song := mai.total_list.by_id(name)):
         await search_alias_song.finish(
-            "您要找的是不是：" + await draw_chart_info(song, qqid=user_id)
+            "您要找的是不是：" + await draw_chart_info(song, user)
         )
     if search_id := re.search(r"^id([0-9]*)$", name, re.IGNORECASE):
         song = mai.total_list.by_id(search_id.group(1))
         await search_alias_song.finish(
-            "您要找的是不是：" + await draw_chart_info(song, qqid=user_id)
+            "您要找的是不是：" + await draw_chart_info(song, user)
         )
     
     # 标题
@@ -307,7 +285,7 @@ async def _(
         await search_alias_song.finish(error_msg)
     elif len(result) == 1:
         await search_alias_song.finish(
-            "您要找的是不是：" + await draw_chart_info(result[0], user_id)
+            "您要找的是不是：" + await draw_chart_info(result[0], user)
         )
     elif len(result) < 50:
         msg = f"未找到别名为「{name}」的歌曲，但找到{len(result)}个相似标题的曲目：\n"
@@ -323,13 +301,8 @@ async def _(
 async def _(
     event: GroupAtMessageCreateEvent | AtMessageCreateEvent, 
     message: Message = CommandArg(), 
-    user_id: str = Depends(get_qqid)
+    user: User = Depends(get_user_db)
 ):
-    try:
-        if isinstance(event, GroupAtMessageCreateEvent):
-            user_id = (await get_user(user_id)).QQID
-    except UserNotBindError:
-        user_id = None
         
     _id = message.extract_plain_text().strip()
     if not _id.isdigit():
@@ -339,5 +312,5 @@ async def _(
     if not song:
         msg = f"未找到ID「{_id}」的乐曲"
     else:
-        msg = await draw_chart_info(song, qqid=user_id)
+        msg = await draw_chart_info(song, user)
     await query_chart.finish(msg)

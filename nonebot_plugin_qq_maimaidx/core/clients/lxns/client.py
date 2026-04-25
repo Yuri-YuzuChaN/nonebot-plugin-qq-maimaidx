@@ -1,7 +1,7 @@
 from httpx import Response
 
 from ....config import lxnsconfig
-from ...database.lxns_database import update_token
+from ...database.qq import update_user
 from ..exceptions import *
 from ..http import ApiClient
 from .models.base import APIResult
@@ -76,11 +76,11 @@ class LxnsClient(ApiClient):
         *,
         base_url: str,
         headers: dict[str, str],
-        qq: int,
+        open_id: str,
         token: OAuth2Token | BaseToken | None = None
     ):
         super().__init__(base_url=base_url, headers=headers)
-        self.qq = qq
+        self.open_id = open_id
         self._token = token
         self._friend_code: int | None = None
     
@@ -96,7 +96,7 @@ class LxnsClient(ApiClient):
 
         try:
             new_token = await oauth.refresh_token()
-            await update_token(self.qq, new_token)
+            await update_user(self.open_id, token=new_token)
         except Exception:
             self._token = None
             return False
@@ -147,12 +147,12 @@ class LxnsClient(ApiClient):
 
 class LxnsAPI:
     
-    def __init__(self, qq: int | None = None, token: OAuth2Token | BaseToken | None = None):
+    def __init__(self, open_id: str | None = None, token: OAuth2Token | BaseToken | None = None):
         self._oauth_client = (
             LxnsClient(
                 base_url="https://maimai.lxns.net/api/v0/user/maimai/player",
                 headers={"Authorization": f"Bearer {token.access_token}"},
-                qq=qq,
+                open_id=open_id,
                 token=token
             )
             if token else None
@@ -161,7 +161,7 @@ class LxnsAPI:
         self._dev_client = LxnsClient(
             base_url="https://maimai.lxns.net/api/v0/maimai",
             headers={"Authorization": lxnsconfig.lxns_dev_token},
-            qq=qq,
+            open_id=open_id,
             token=None
         )
     

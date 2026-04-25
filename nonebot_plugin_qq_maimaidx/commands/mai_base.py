@@ -1,3 +1,4 @@
+import random
 import re
 
 from nonebot import on_command
@@ -15,14 +16,17 @@ from PIL import Image
 from ..config import log, maiconfig
 from ..constants import LEVEL_LIST
 from ..core.clients.exceptions import UserNotBindError
-from ..core.database.qq_database import get_user, insert_user, update_user
+from ..core.database.qq import User, get_user, update_user
 from ..core.image.tools import image_to_bytesio, song_chart
+from ..core.search import draw_chart_info, draw_rating_ranking, draw_rise_score_list
 from ..core.service import mai
 from ..core.tool import qqhash
 from ..resources import Root
+from .extra import get_user_db
 
 bind            = on_command("绑定")
 guildid         = on_command("频道ID")
+theme           = on_command("主题")
 help            = on_command("help")
 mai_today       = on_command("今日舞萌")
 random_song     = on_command("随机谱面")
@@ -30,40 +34,40 @@ rise_score      = on_command("我要上分")
 rating_ranking  = on_command("查看排名")
 
 
-def get_qqid(
-    event: GroupAtMessageCreateEvent | AtMessageCreateEvent | DirectMessageCreateEvent
-) -> str:
-    if isinstance(event, GroupAtMessageCreateEvent):
-        return event.author.member_openid
-    else:
-        return event.author.id
-
-
 @bind.handle()
 async def _(event: GroupAtMessageCreateEvent, message: Message = CommandArg()):
+    qqid = message.extract_plain_text().strip()
+    open_id = event.author.member_openid
     try:
-        qqid = message.extract_plain_text().strip()
-        user_id = event.author.member_openid
-        if qqid.isdigit() and get_user(user_id):
-            update_user(user_id, qqid)
+        if qqid.isdigit() and await get_user(open_id):
+            await update_user(open_id, qqid)
             await bind.send(F"已绑定QQ {qqid}")
         else:
             await bind.send("QQ号格式错误，请重新绑定")
     except UserNotBindError:
-        insert_user(user_id, qqid)
+        await update_user(open_id, qqid=qqid)
         await bind.send(F"已绑定QQ {qqid}")
 
 
 @guildid.handle()
 async def _(event: AtMessageCreateEvent | DirectMessageCreateEvent):
-    user_id = event.author.id
+    open_id = event.author.id
     if isinstance(event, AtMessageCreateEvent):
         await guildid.send(
-            MessageSegment.mention_user(user_id) + 
-            f"您的频道ID为：{user_id}\n现在可前往查分器官网进行频道绑定"
+            MessageSegment.mention_user(open_id) + 
+            f"您的频道ID为：{open_id}\n现在可前往查分器官网进行频道绑定"
         )
     else:
-        await guildid.send(f"您的频道ID为：{user_id}\n现在可前往查分器官网进行频道绑定")
+        await guildid.send(f"您的频道ID为：{open_id}\n现在可前往查分器官网进行频道绑定")
+
+
+@theme.handle()
+async def _(
+    event: AtMessageCreateEvent | DirectMessageCreateEvent, 
+    user: User = Depends(get_user_db)
+):
+    await update_user()
+    
 
 
 @help.handle()
@@ -76,13 +80,10 @@ async def _(event: MessageEvent):
 @mai_today.handle()
 async def _(
     event: GroupAtMessageCreateEvent | AtMessageCreateEvent, 
-    user_id: str = Depends(get_qqid)
+    user: User | None = Depends(get_user_db)
 ):
-    try:
-        if isinstance(event, GroupAtMessageCreateEvent):
-            user_id = get_user(user_id).QQID
-    except UserNotBindError as e:
-        await mai_today.finish(str(e))
+    if user is None:
+        await mai_today.finish()
     wm_list = [
         "拼机", 
         "推分", 
@@ -96,7 +97,7 @@ async def _(
         "抓绝赞", 
         "收歌"
     ]
-    h = qqhash(int(user_id))
+    h = qqhash(user.qqid)
     rp = h % 100
     wm_value = []
     for i in range(11):
@@ -108,12 +109,14 @@ async def _(
             msg += f"宜 {wm_list[i]}\n"
         elif wm_value[i] == 0:
             msg += f"忌 {wm_list[i]}\n"
-    music = mai.total_list[h % len(mai.total_list)]
-    ds = "/".join([str(_) for _ in music.ds])
-    msg += f"{maiconfig.bot_name} Bot提醒您：打机时不要大力拍打或滑动哦\n今日推荐歌曲："
-    msg += f"ID.{music.id} - {music.title}"
-    msg += MessageSegment.file_image(song_chart(music.id))
-    msg += ds
+    music = mai.total_list.root[h % len(mai.total_list.root)]
+    ds = "/".join([str(d.level_value) for d in music.difficulties])
+    msg += (
+        f"{maiconfig.bot_name} Bot提醒您：打机时不要大力拍打或滑动哦\n今日推荐歌曲："
+        f"ID.{music.song_id} - {music.song_name}"
+        f"{MessageSegment.file_image(song_chart(music.song_id))}"
+        f"{ds}"
+    )
     await mai_today.send(msg)
         
         
@@ -121,13 +124,8 @@ async def _(
 async def _(
     event: GroupAtMessageCreateEvent | AtMessageCreateEvent, 
     message: Message = CommandArg(), 
-    user_id: str = Depends(get_qqid)
+    user: User = Depends(get_user_db)
 ):
-    try:
-        if isinstance(event, GroupAtMessageCreateEvent):
-            user_id = get_user(user_id).QQID
-    except UserNotBindError:
-        user_id = None
     args = message.extract_plain_text().strip()
     match = re.search(r"^((?:dx|sd|标准))?([绿黄红紫白]?)([0-9]+\+?)$", args)
     if not match:
@@ -141,31 +139,27 @@ async def _(
         tp = ["SD", "DX"]
     level = match.group(3)
     if match.group(2) == "":
-        music_data = mai.total_list.filter(level=level, type=tp)
+        songs = mai.total_list.filter(level=level, type=tp)
     else:
-        music_data = mai.total_list.filter(
+        songs = mai.total_list.filter(
             level=level, 
-            diff=["绿黄红紫白".index(match.group(2))], 
             type=tp
         )
-    if len(music_data) == 0:
-        msg = "没有这样的乐曲哦。"
+    if len(songs) == 0:
+        result = "没有这样的乐曲哦。"
     else:
-        msg = await draw_music_info(music_data.random(), user_id)
-    await random_song.send(msg)
+        result = await draw_chart_info(random.choice(songs), user)
+    await random_song.send(result)
 
 
 @rise_score.handle()
 async def _(
     event: GroupAtMessageCreateEvent | AtMessageCreateEvent, 
     message: Message = CommandArg(), 
-    user_id: str = Depends(get_qqid)
+    user: User = Depends(get_user_db)
 ):
-    try:
-        if isinstance(event, GroupAtMessageCreateEvent):
-            user_id = get_user(user_id).QQID
-    except UserNotBindError as e:
-        await rise_score.finish(str(e))
+    if user is None:
+        await rise_score.finish()
     
     args = message.extract_plain_text().strip()
     match = re.search(r"^([0-9]+\+?)?\+([0-9]+)$", args)
@@ -179,7 +173,7 @@ async def _(
     if rating and rating not in LEVEL_LIST:
         await rise_score.finish("无此等级", reply_message=True)
 
-    data = await rise_score_data(user_id, None, rating, score)
+    data = await draw_rise_score_list(user, None, rating, score)
     await rise_score.send(data)
 
 
@@ -195,7 +189,7 @@ async def _(
         page = int(args)
     else:
         name = args.lower()
-    pic = await rating_ranking_data(name, page)
+    pic = await draw_rating_ranking(name, page)
     await rating_ranking.send(pic)
     
 

@@ -10,6 +10,7 @@ from ..image.base import DrawText
 from ..merge.models.score import NotPlayedResult, PlayedResult
 from ..merge.models.service import ServiceName
 from ..merge.models.song import Song
+from ..merge.models.theme import Theme
 from ..utils.calc import compute_rating, dx_score
 from .base import change_column_width, coloum_width, song_chart
 from .tools import image_to_bytesio
@@ -17,6 +18,7 @@ from .tools import image_to_bytesio
 
 def song_play_data(
     service: ServiceName, 
+    theme: Theme,
     *, 
     song: Song,
     play_result: list[NotPlayedResult | PlayedResult],
@@ -26,12 +28,12 @@ def song_play_data(
     谱面游玩
     
     Params:
-        `qqid`: QQID
+        `qqid`: qqid
         `song_id`: 曲目ID
     Returns:
         `Image`
     """
-    im = Image.open(pic_dir / "play_info_bg.png").convert("RGBA")
+    im = Image.open(pic_dir / theme.value / "play_info_bg.png").convert("RGBA")
 
     dr = ImageDraw.Draw(im)
     tb = DrawText(dr, TBFONT)
@@ -115,9 +117,9 @@ def song_play_data(
                     ).resize((65, 65)), 
                     (1025, 261 + y * num)
                 )
-            im.alpha_composite(Image.open(pic_dir / "ra.png"), (1350, 405 + y * num))
+            im.alpha_composite(Image.open(pic_dir / theme.value / "ra.png"), (1350, 405 + y * num))
             im.alpha_composite(
-                Image.open(pic_dir / f"UI_TTR_Rank_{rate}.png").resize((100, 45)), 
+                Image.open(pic_dir / theme.value / f"UI_TTR_Rank_{rate}.png").resize((100, 45)), 
                 (737, 272 + y * num)
             )
 

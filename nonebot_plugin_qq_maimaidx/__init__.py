@@ -5,8 +5,7 @@ from nonebot.plugin import PluginMetadata, require
 
 from .commands import *
 from .config import BaseConfig, dfconfig, driver, log, maiconfig
-from .core.database.lxns_database import create_database as lxns_create
-from .core.database.qq_database import create_database as qq_create
+from .core.database.qq import create_database as qq_create
 from .core.image.update_table import UpdateTable
 from .core.service import mai
 from .web import *
@@ -36,7 +35,6 @@ async def get_music():
     """
     bot启动时开始获取所有数据
     """
-    await lxns_create()
     await qq_create()
     if dfconfig.divingfish_prober_proxy:
         log.info("使用代理服务器访问「水鱼」查分器")

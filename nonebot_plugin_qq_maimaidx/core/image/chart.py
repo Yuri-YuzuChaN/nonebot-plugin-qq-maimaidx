@@ -8,6 +8,7 @@ from ...config import maiconfig
 from ...constants import *
 from ...resources import pie_html_file
 from ..merge.models.song import Song
+from ..merge.models.theme import Theme
 from ..tool import run_chrome_to_base64
 from ..utils.calc import compute_rating
 from .base import *
@@ -138,22 +139,22 @@ def song_chart_info(
     song: Song, 
     calc: bool,
     is_full: bool,
-    best_list: list[PlayedResult]
+    best_list: list[PlayedResult], 
+    theme: Theme
 ) -> BytesIO:
     """
     查看谱面
     
     Params:
         `song`: 曲目模型
-        `qqid`: QQID
+        `qqid`: qqid
         `user`: 用户模型
     Returns:
         `MessageSegment`
     """
-    im = Image.open(pic_dir / "chart_info_bg.png").convert("RGBA")
+    im = Image.open(pic_dir / theme.value / "chart_info_bg.png").convert("RGBA")
     dr = ImageDraw.Draw(im)
     mr = DrawText(dr, SIYUAN)
-    tb = DrawText(dr, TBFONT)
     fn = DrawText(dr, FOTNEWRODIN)
     
     default_color = (249, 62, 172, 255)

@@ -25,7 +25,7 @@ async def draw_music_info(
     
     Params:
         `music`: 曲目模型
-        `qqid`: QQID
+        `qqid`: qqid
         `user`: 用户模型
     Returns:
         `MessageSegment`
@@ -128,7 +128,7 @@ async def draw_music_play_data(qqid: int, music_id: str) -> Union[str, MessageSe
     谱面游玩
     
     Params:
-        `qqid`: QQID
+        `qqid`: qqid
         `music_id`: 曲目ID
     Returns:
         `Union[str, MessageSegment]`
@@ -274,7 +274,7 @@ async def draw_rating_table(qqid: int, rating: str, isfc: bool = False) -> Union
     绘制定数表
     
     Params:
-        `qqid`: QQID
+        `qqid`: qqid
         `rating`: 定数
         `isfc`: 是否查询fc成绩
     Returns:
@@ -415,7 +415,7 @@ async def draw_plate_table(qqid: int, version: str, plan: str) -> Union[str, Mes
     绘制完成表
     
     Params:
-        `qqid`: QQID
+        `qqid`: qqid
         `version`: 版本
         `plan`: 计划
     Returns:

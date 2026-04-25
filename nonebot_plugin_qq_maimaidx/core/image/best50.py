@@ -11,6 +11,7 @@ from ..clients.lxns.models.collection import Collection
 from ..merge.models.best50 import Best50
 from ..merge.models.player import Player
 from ..merge.models.service import ServiceName
+from ..merge.models.theme import Theme
 from .base import ScoreBaseImage
 from .tools import image_to_bytesio
 
@@ -20,6 +21,7 @@ class PlayerBest50(ScoreBaseImage):
     def __init__(
         self, 
         service: ServiceName,
+        theme: Theme,
         *, 
         player: Player, 
         best50: Best50, 
@@ -27,8 +29,8 @@ class PlayerBest50(ScoreBaseImage):
         icon: str | None = None
     ) -> None:
         self.service = service
-        path = pic_dir / "b50_bg.png"
-        super().__init__(Image.open(path).convert("RGBA"))
+        path = pic_dir / theme.value / "b50_bg.png"
+        super().__init__(Image.open(path).convert("RGBA"), theme)
         self.player = player
         self.best50 = best50
         self.qqid = qqid

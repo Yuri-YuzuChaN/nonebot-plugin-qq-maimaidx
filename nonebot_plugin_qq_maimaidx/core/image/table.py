@@ -5,6 +5,7 @@ from ...resources import plate_dir, rating_dir
 from ..merge.models.score import PlayedResult, RatingTableResult
 from ..merge.models.service import ServiceName
 from ..merge.models.song import Song
+from ..merge.models.theme import Theme
 from ..utils.calc import compute_rating
 from .base import *
 from .tools import *
@@ -50,6 +51,7 @@ class PlateGridConfig:
     row_count = 12
     """数量"""
 
+
 class DrawRatingTable:
     
     # rating_bg = Image.open(pic_dir / "rating_bg.png")
@@ -85,7 +87,7 @@ class DrawRatingTable:
     def _get_rank_icon(self, rate: str) -> Image.Image:
         """按需加载并缓存图标"""
         if rate not in self._rank_cache:
-            path = pic_dir / f"UI_TTR_Rank_{rate}.png"
+            path = pic_dir / Theme.PRISM_PLUS.value / f"UI_TTR_Rank_{rate}.png"
             if path.exists():
                 self._rank_cache[rate] = Image.open(path)
         return self._rank_cache.get(rate)
@@ -336,7 +338,7 @@ class DrawPlateTable:
         """获取牌子完成时的图标"""
         if plan == "将":
             rate = compute_rating(play.level_value, play.achievements, onlyrate=True)
-            return Image.open(pic_dir / f"UI_TTR_Rank_{rate}.png").resize((80, 36))
+            return Image.open(pic_dir / Theme.PRISM_PLUS.value / f"UI_TTR_Rank_{rate}.png").resize((80, 36))
         
         cfg = self.PLAN_CRITERIA.get(plan)
         val = getattr(play, cfg["attr"])

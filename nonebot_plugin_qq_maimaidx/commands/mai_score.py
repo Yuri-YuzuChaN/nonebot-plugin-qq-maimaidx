@@ -1,22 +1,17 @@
 from textwrap import dedent
 
 from nonebot import on_command
-from nonebot.adapters.qq import (
-    AtMessageCreateEvent,
-    DirectMessageCreateEvent,
-    GroupAtMessageCreateEvent,
-    Message,
-)
+from nonebot.adapters.qq import AtMessageCreateEvent, GroupAtMessageCreateEvent, Message
 from nonebot.matcher import Matcher
 from nonebot.params import CommandArg, Depends
 
 from ..core.clients.exceptions import UserNotBindError
 from ..core.clients.lxns.models.oauth import BaseToken
-from ..core.database.lxns_database import get_user as lxuser
-from ..core.database.qq_database import get_user as qquser
+from ..core.database.qq import User
 from ..core.merge.models.service import ServiceName
 from ..core.search import draw_best50, draw_play_data, draw_song_galobal_data
 from ..core.service import mai
+from .extra import get_user_db
 
 dfb50   = on_command("b50")
 lxb50   = on_command("lx50")
@@ -26,22 +21,13 @@ lxinfo  = on_command("lxinfo")
 ginfo   = on_command("ginfo")
 
 
-def get_qqid(
-    event: AtMessageCreateEvent | GroupAtMessageCreateEvent | DirectMessageCreateEvent
-) -> str:
-    if isinstance(event, GroupAtMessageCreateEvent):
-        return event.author.member_openid
-    else:
-        return event.author.id
-    
-
 @dfb50.handle()
 @lxb50.handle()
 async def _(
     matcher: Matcher,
     event: AtMessageCreateEvent | GroupAtMessageCreateEvent, 
     message: Message = CommandArg(), 
-    user_id: str = Depends(get_qqid)
+    user: User = Depends(get_user_db)
 ):
     try:
         username = message.extract_plain_text().strip()
@@ -49,21 +35,13 @@ async def _(
         if isinstance(event, AtMessageCreateEvent) and not username:
             icon = event.author.avatar
         if isinstance(matcher, dfb50):
-            if isinstance(event, GroupAtMessageCreateEvent) and not username:
-                user_id = (await qquser(user_id)).QQID
             result = await draw_best50(
-                ServiceName.DIVINGFISH, 
-                user_id, 
+                user, 
                 username=username, 
                 icon=icon
             )
         else:
-            user = await lxuser(user_id)
-            token = BaseToken(
-                access_token=user.access_token, 
-                refresh_token=user.refresh_token
-            )
-            result = await draw_best50(ServiceName.LXNS, user.qqid, token=token)
+            result = await draw_best50(user)
     except UserNotBindError as e:
         result = str(e)
     await matcher.send(result)
@@ -76,43 +54,36 @@ async def _(
     matcher: Matcher,
     event: AtMessageCreateEvent | GroupAtMessageCreateEvent, 
     message: Message = CommandArg(), 
-    user_id: str = Depends(get_qqid)
+    user: User = Depends(get_user_db)
 ):
-    try:
-        data = message.extract_plain_text().strip()
-        if not data:
-            await matcher.finish("请输入曲目id或曲名")
-        
-        if data.isdigit() and mai.total_list.by_id(int(data)):
-            song_id = data
-        elif by_t := mai.total_list.by_name(data):
-            song_id = by_t.song_id
+    data = message.extract_plain_text().strip()
+    if not data:
+        await matcher.finish("请输入曲目id或曲名")
+    
+    if data.isdigit() and mai.total_list.by_id(int(data)):
+        song_id = data
+    elif by_t := mai.total_list.by_name(data):
+        song_id = by_t.song_id
+    else:
+        aliases = mai.total_alias_list.by_alias(data)
+        if not aliases:
+            await matcher.finish("未找到曲目")
+        elif len(aliases) != 1:
+            msg = "找到相同别名的曲目，请使用以下ID查询：\n"
+            for alias in aliases:
+                msg += f"{alias.song_id}：{alias.alias[0]}\n"
+            await matcher.finish(msg.strip())
         else:
-            aliases = mai.total_alias_list.by_alias(data)
-            if not aliases:
-                await matcher.finish("未找到曲目")
-            elif len(aliases) != 1:
-                msg = "找到相同别名的曲目，请使用以下ID查询：\n"
-                for alias in aliases:
-                    msg += f"{alias.song_id}：{alias.alias[0]}\n"
-                await matcher.finish(msg.strip())
-            else:
-                song_id = aliases[0].song_id
-        song = mai.total_list.by_id(int(song_id))
-        
-        if isinstance(matcher, dfinfo):
-            if isinstance(event, GroupAtMessageCreateEvent):
-                user_id = (await qquser(user_id)).QQID
-            result = await draw_play_data(ServiceName.DIVINGFISH, user_id, song)
-        else:
-            user = await lxuser(user_id)
-            token = BaseToken(
-                access_token=user.access_token, 
-                refresh_token=user.refresh_token
-            )
-            result = await draw_play_data(ServiceName.LXNS, song, user_id, token=token)
-    except UserNotBindError as e:
-        result = str(e)
+            song_id = aliases[0].song_id
+    song = mai.total_list.by_id(int(song_id))
+    
+    if isinstance(matcher, info):
+        service = None
+    elif isinstance(matcher, dfinfo):
+        service = ServiceName.DIVINGFISH
+    else:
+        service = ServiceName.LXNS
+    result = await draw_play_data(user, song, service=service)
     await matcher.send(result)
 
 
