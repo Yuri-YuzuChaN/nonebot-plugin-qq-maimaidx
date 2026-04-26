@@ -1,13 +1,12 @@
 import re
 
 from nonebot import on_command
-from nonebot.adapters.qq import AtMessageCreateEvent, GroupAtMessageCreateEvent, Message
+from nonebot.adapters.qq import Message
 from nonebot.params import CommandArg, Depends
 
 from ..constants import *
-from ..core.clients.exceptions import UserNotBindError
 from ..core.database.qq import User
-from ..core.merge.models.service import ServiceName
+from ..core.merge.models.category import Category
 from ..core.search import (
     draw_level_progress,
     draw_level_score_list,
@@ -18,13 +17,6 @@ from ..core.search import (
 )
 from .extra import get_user_db
 
-rating_table            = on_command("定数表")
-rating_table_pf         = on_command("完成表")
-plate_process           = on_command("牌子进度")
-level_process           = on_command("等级进度")
-level_score_list        = on_command("分数列表")
-
-
 TABLE_PATTERN = (
     r"^([真超檄橙暁晓桃櫻樱紫菫堇白雪輝辉舞霸熊華华爽煌星宙祭祝双宴镜彩])"
     r"([極极将舞神者]舞?)\s?([12])?"
@@ -32,14 +24,24 @@ TABLE_PATTERN = (
 RATING_PATTERN = r"^([0-9]+\+?)(ap|app|fc|fcp|fs|fsp|fdx|fdxp)?"
 LEVEL_PATTERN = r"([0-9]+\+?)\s?([abcdsfxp\+]+)\s?([\u4e00-\u9fa5]+)?\s?([0-9]+)?\s?(.+)?"
 LEVEL_LIST_PATTERN = r"([0-9]+\.?[0-9]?\+?)\s?([0-9]+)?\s?(.+)?"
+CATEGORY_ALIAS = {
+    "已完成": Category.COMPLETED,
+    "未完成": Category.UNFINISHED,
+    "未开始": Category.NOTPLAYED,
+    "未游玩": Category.NOTPLAYED,
+}
+
+
+rating_table            = on_command("定数表")
+rating_table_pf         = on_command("完成表")
+plate_process           = on_command("牌子进度")
+level_process           = on_command("等级进度")
+level_score_list        = on_command("分数列表")
 
 
 
 @rating_table.handle()
-async def _(
-    event: GroupAtMessageCreateEvent | AtMessageCreateEvent, 
-    message: Message = CommandArg()
-):
+async def _(message: Message = CommandArg()):
     rating = message.extract_plain_text().strip()
     if rating in LEVEL_LIST[:6]:
         result = "只支持查询lv7-15的定数表"
@@ -51,11 +53,7 @@ async def _(
 
 
 @rating_table_pf.handle()
-async def _(
-    event: GroupAtMessageCreateEvent | AtMessageCreateEvent, 
-    message: Message = CommandArg(), 
-    user: User = Depends(get_user_db)
-):
+async def _(message: Message = CommandArg(), user: User = Depends(get_user_db)):
     args = message.extract_plain_text().strip()
     _rating = re.search(RATING_PATTERN, args, re.IGNORECASE)
     plate = re.search(TABLE_PATTERN, args)
@@ -84,11 +82,7 @@ async def _(
         
 
 @plate_process.handle()
-async def _(
-    event: GroupAtMessageCreateEvent | AtMessageCreateEvent, 
-    message: Message = CommandArg(), 
-    user: User = Depends(get_user_db)
-):
+async def _(message: Message = CommandArg(), user: User = Depends(get_user_db)):
     username = None
     args = message.extract_plain_text().lower()
     match = re.search(TABLE_PATTERN, args)
@@ -104,18 +98,14 @@ async def _(
 
 
 @level_process.handle()
-async def _(
-    event: GroupAtMessageCreateEvent | AtMessageCreateEvent, 
-    message: Message = CommandArg(), 
-    user: User = Depends(get_user_db)
-):
+async def _(message: Message = CommandArg(), user: User = Depends(get_user_db)):
     args = message.extract_plain_text().lower()
     match = re.search(LEVEL_PATTERN, args)
     if not match:
         await level_process.finish("输入错误，请重新输入难度等级")
     level = match.group(1)
     plan = match.group(2)
-    CATEGORY = match.group(3)
+    category_ = match.group(3)
     page = match.group(4) or 1
     username = match.group(5)
     
@@ -127,37 +117,27 @@ async def _(
         plan.lower() in RANK_PLUS and RANK_PLUS.index(plan.lower()) < 8
     ):
         await level_process.finish("兄啊，有点志向好不好")
-    if CATEGORY:
-        if CATEGORY in ["已完成", "未完成", "未开始"]:
-            _c = {
-                "已完成": "completed",
-                "未完成": "unfinished",
-                "未开始": "notstarted",
-                "未游玩": "notstarted"
-            }
-            CATEGORY = _c[CATEGORY]
+    if category_:
+        target_category = CATEGORY_ALIAS.get(category_)
+        if target_category:
+            category = target_category
         else:
-            await level_process.finish(f"无法指定查询「{CATEGORY}」")
+            await level_process.finish(f"无法指定查询「{category_}」")
     else:
-        CATEGORY = "default"
+        category = Category.DEFAULT
     
     data = await draw_level_progress(
         user, 
-        username, 
         level, 
         plan, 
-        CATEGORY, 
+        category, 
         int(page)
     )
     await level_process.send(data)
 
 
 @level_score_list.handle()
-async def _(
-    event: GroupAtMessageCreateEvent | AtMessageCreateEvent, 
-    message: Message = CommandArg(), 
-    user: User = Depends(get_user_db)
-):
+async def _(message: Message = CommandArg(), user: User = Depends(get_user_db)):
     args = message.extract_plain_text().lower()
     match = re.search(LEVEL_LIST_PATTERN, args)
     if not match:

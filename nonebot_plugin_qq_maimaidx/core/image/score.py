@@ -4,9 +4,9 @@ from PIL import Image
 
 from ...config import maiconfig
 from ...resources import pic_dir
+from ..merge.models.category import Category
 from ..merge.models.score import *
 from ..merge.models.service import ServiceName
-from ..merge.models.song import SimpleSong
 from ..merge.models.theme import Theme
 from .base import ScoreBaseImage, change_column_width, coloum_width
 from .tools import image_to_bytesio, song_chart
@@ -14,19 +14,20 @@ from .tools import image_to_bytesio, song_chart
 
 class DrawScore(ScoreBaseImage):
     
-    def __init__(self, service: ServiceName, image: Image.Image, theme: Theme) -> None:
+    def __init__(self, service: ServiceName, image: Image.Image) -> None:
         self.service = service
-        super().__init__(image, theme)
+        self.theme = Theme.PRISM_PLUS
+        super().__init__(image, self.theme)
         self._im.alpha_composite(self._aurora_bg)
         self._im.alpha_composite(self._shines_bg, (11, 6))
         self._im.alpha_composite(self._cloud_bg, (318, self._im.size[1] - 545))
         self._im.alpha_composite(self._rainbow_bottom_bg, (122, self._im.size[1] - 305))
         for h in range((self._im.size[1] // 358) + 1):
             self._im.alpha_composite(self._pattern_bg, (0, (358 + 7) * h))
-        self._design_bg = Image.open(pic_dir / Theme.PRISM_PLUS.value / "design.png")
-        self._title_lengthen_bg = Image.open(pic_dir / Theme.PRISM_PLUS.value/ "title_lengthen.png")
-
-    def _while_pic(self, data: list[SimpleSong], y: int = 200):
+        self._design_bg = Image.open(pic_dir / self.theme.value / "design.png")
+        self._title_lengthen_bg = Image.open(pic_dir / self.theme.value / "title_lengthen.png")
+    
+    def _while_pic(self, data: list[NotPlayedResult], start_y: int = 200):
         """
         循环绘制谱面
         
@@ -34,23 +35,24 @@ class DrawScore(ScoreBaseImage):
             `data`: `谱面数据`
             `y`: `y轴坐标`
         """
-        dy = 65
-        x = 0
-        for n, v in enumerate(data):
-            if n % 20 == 0:
-                x = 55
-                y += dy if n != 0 else 0
-            else:
-                x += 65
+        step = 65
+        start_x = 55
+        base_y = start_y
+        for num, v in enumerate(data):
+            row, col = divmod(num, 20)
+            
+            x = start_x + col * step
+            y = base_y + row * step
+            
             cover = Image.open(song_chart(v.song_id)).resize((55, 55))
             self._im.alpha_composite(cover, (x, y))
-            self._im.alpha_composite(self._id_diff_im[int(v.difficulties.level)], (x, y + 45))
+            self._im.alpha_composite(self._id_diff_im[v.level_index], (x, y + 45))
             self._tb.draw(
                 x + 27, y + 50, 10, v.song_id, 
-                self._diff_text_color[int(v.difficulties.level)], "mm"
+                self._diff_text_color[v.level_index], "mm"
             )
     
-    def whilerisepic(self, data: list[RiseResult], low_score: int, isdx: bool):
+    def while_rise_pic(self, data: list[RiseResult], low_score: int, isdx: bool):
         """
         循环绘制上分推荐数据
         
@@ -59,12 +61,14 @@ class DrawScore(ScoreBaseImage):
             `low_score`: `最低分`
             `isdx`: `是否DX版本`
         """
-        y = 120
+        start_y = 120
+        height = 140
+        base_x = 200 if isdx else 700
         for index, _d in enumerate(data):
-            x = 200 if isdx else 700
-            y += 140 if index != 0 else 0
+            x = base_x
+            y = start_y + index * height
             
-            rate = Image.open(pic_dir / f"UI_TTR_Rank_{_d.rate}.png").resize((63, 28))
+            rate = Image.open(pic_dir / self.theme.value / f"UI_TTR_Rank_{_d.rate}.png").resize((63, 28))
             
             self._im.alpha_composite(self._rise_bg[_d.level_index], (x + 30, y))
             self._im.alpha_composite(
@@ -74,7 +78,7 @@ class DrawScore(ScoreBaseImage):
                 Image.open(pic_dir / f"{_d.type.upper()}.png").resize((60, 22)), (x + 240, y + 114)
             )
             if _d.oldrate:
-                oldrate = Image.open(pic_dir / f"UI_TTR_Rank_{_d.oldrate}.png").resize((63, 28))
+                oldrate = Image.open(pic_dir / self.theme.value / f"UI_TTR_Rank_{_d.oldrate}.png").resize((63, 28))
                 self._im.alpha_composite(oldrate, (x + 145, y + 82))
             self._im.alpha_composite(rate, (x + 305, y + 82))
             
@@ -103,7 +107,7 @@ class DrawScore(ScoreBaseImage):
         sd_score: int, 
         dx: list[RiseResult], 
         dx_score: int
-    ) -> Image.Image:
+    ) -> BytesIO:
         """
         绘制上分数据表
         
@@ -118,10 +122,10 @@ class DrawScore(ScoreBaseImage):
         title_bg = self._title_bg.copy().resize((273, 80))
         self._im.alpha_composite(title_bg, (314, 30))
         self._sy.draw(450, 68, 18, "旧版本谱面推荐", self._default_text_color, "mm")
-        self.whilerisepic(sd, sd_score, True)
+        self.while_rise_pic(sd, sd_score, True)
         self._im.alpha_composite(title_bg, (814, 30))
         self._sy.draw(950, 68, 18, "新版本谱面推荐", self._default_text_color, "mm")
-        self.whilerisepic(dx, dx_score, False)
+        self.while_rise_pic(dx, dx_score, False)
         
         height = self._im.size[1]
         self._im.alpha_composite(self._design_bg.resize((800, 72)), (300, height - 110))
@@ -130,7 +134,7 @@ class DrawScore(ScoreBaseImage):
             f"Designed by Yuri-YuzuChaN & BlueDeer233. Generated by {maiconfig.bot_name} BOT", 
             self._default_text_color, "mm"
         )
-        return self._im
+        return image_to_bytesio(self._im)
 
     def draw_plan(
         self,
@@ -138,10 +142,10 @@ class DrawScore(ScoreBaseImage):
         completed_y: int,
         unfinished: list[PlayedResult],
         unfinished_y: int,
-        notstarted: list[SimpleSong],
+        notstarted: list[NotPlayedResult],
         plan: str,
         completed_len: int,
-    ) -> Image.Image:
+    ) -> BytesIO:
         """
         绘制进度表
         
@@ -182,15 +186,15 @@ class DrawScore(ScoreBaseImage):
         self._im.alpha_composite(self._design_bg, (200, self._im.size[1] - 113))
         pagemsg = f"共计「{max}」个谱面，剩余「{len(unfinished + notstarted)}」个谱面未完成「{plan.upper()}」"
         self._sy.draw(700, self._im.size[1] - 70, 25, pagemsg, self._default_text_color, "mm")
-        return self._im
+        return image_to_bytesio(self._im)
 
     def draw_category(
         self, 
-        category: str, 
-        data: list[PlayedResult] | list[SimpleSong],
+        category: Category, 
+        data: list[PlayedResult] | list[NotPlayedResult],
         page: int = 1, 
         end_page: int = 1
-    ) -> Image.Image:
+    ) -> BytesIO:
         """
         绘制指定进度表
         
@@ -205,16 +209,16 @@ class DrawScore(ScoreBaseImage):
         lendata = len(data)
         newdata = data[(page - 1) * 80: page * 80]
         self._im.alpha_composite(self._title_lengthen_bg, (475, 30))
-        if category == "completed" or category == "unfinished":
-            txt = "已完成" if category == "completed" else "未完成"
+        if category in [Category.COMPLETED, Category.UNFINISHED]:
+            txt = "已完成" if category == Category.COMPLETED else "未完成"
             self._sy.draw(700, 77, 28, f"{txt}谱面", self._default_text_color, "mm")
             self.whiledraw(newdata, False, 140)
             self._im.alpha_composite(self._design_bg, (200, self._im.size[1] - 113))
             
             pagemsg = (
                 f"{txt}谱面共计「{lendata}」个，"
-                f"展示第「{(page - 1) * 80 + 1}-{80 * (page - 1) + len(newdata)}」个，"
-                f"当前第「{page} / {end_page}」页"
+                f"当前第「{(page - 1) * 80 + 1}-{80 * (page - 1) + len(newdata)}」个，"
+                f"第「{page} / {end_page}」页"
             )
             self._sy.draw(700, self._im.size[1] - 70, 25, pagemsg, self._default_text_color, "mm")
         else:
@@ -225,7 +229,7 @@ class DrawScore(ScoreBaseImage):
                 700, self._im.size[1] - 70, 25, f"未游玩谱面共计「{len(data)}」个", 
                 self._default_text_color, "mm"
             )
-        return self._im
+        return image_to_bytesio(self._im)
     
     def draw_score_list(
         self, 

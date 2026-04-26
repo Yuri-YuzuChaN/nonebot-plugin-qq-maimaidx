@@ -193,13 +193,13 @@ def song_chart_info(
     # genre
     mr.draw(665, 435, 24, song.genre, default_color, "mm")
 
-    for num, v in enumerate(song.difficulties):
-        if num == 4:
+    for index, v in enumerate(song.difficulties):
+        if index == 4:
             color = (255, 255, 255, 255)
         else:
             color = (255, 255, 255, 255)
         # 间距
-        spacing = 70 * num
+        spacing = 70 * index
         # 定数
         fn.draw(120, 590 + spacing, 22, f"{v.level}({v.level_value})", color, "mm")
         # 拟合
@@ -215,7 +215,7 @@ def song_chart_info(
             n_value = getattr(v.notes, field)
             fn.draw(480 + 122 * n, 590 + spacing, 25, n_value, default_color, "mm")
         
-        if num > 1:
+        if index > 1:
             ra = get_best_rating(v.level_value)
             for _n, value in enumerate(ra):
                 size = 22
@@ -225,7 +225,7 @@ def song_chart_info(
                     size = 17
                     rating = f"{value}(↑{value})"
                 elif value > best_list[-1].rating:
-                    new = new_best_score(song.song_id, num, value, best_list)
+                    new = new_best_score(song.song_id, index, value, best_list)
                     if new == 0:
                         rating = value
                     else:
@@ -233,7 +233,7 @@ def song_chart_info(
                         rating = f"{value}(↑{new})"
                 else:
                     rating = value
-                fn.draw(295 + 125 * _n, 1017 + 46 * (num - 2), size, rating, default_color, "mm")
+                fn.draw(295 + 125 * _n, 1017 + 46 * (index - 2), size, rating, default_color, "mm")
     mr.draw(295, 985, 12, "*未实装", anchor="mm")
     mr.draw(
         600, 1212, 22, 

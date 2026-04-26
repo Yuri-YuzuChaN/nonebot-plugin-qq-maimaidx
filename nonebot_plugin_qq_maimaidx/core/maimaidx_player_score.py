@@ -153,7 +153,7 @@ class DrawScore(ScoreBaseImage):
             
             rate = Image.open(maimaidir / f'UI_TTR_Rank_{_d.rate}.png').resize((63, 28))
             
-            self._im.alpha_composite(self._rise[_d.level_index], (x + 30, y))
+            self._im.alpha_composite(self._rise[_d.difficulties.level_index], (x + 30, y))
             self._im.alpha_composite(Image.open(song_chart(_d.song_id)).resize((80, 80)), (x + 55, y + 40))
             self._im.alpha_composite(Image.open(maimaidir / f'{_d.type.upper()}.png').resize((60, 22)), (x + 240, y + 114))
             if _d.oldrate:
@@ -164,18 +164,18 @@ class DrawScore(ScoreBaseImage):
             title = _d.title
             if coloum_width(title) > 26:
                 title = change_column_width(title, 25) + '...'
-            self._sy.draw(x + 142, y + 44, 17, title, self.t_color[_d.level_index], 'lm')
-            self._tb.draw(x + 145, y + 124, 18, f'ID: {_d.song_id}', self._id_text_color[_d.level_index], 'lm')
-            self._tb.draw(x + 210, y + 71, 25, f'{_d.oldachievements:.4f}%', self.t_color[_d.level_index], anchor='mm')
-            self._tb.draw(x + 245, y + 96, 17, f'Ra: {_d.oldra}', self.t_color[_d.level_index], anchor='mm')
-            self._tb.draw(x + 370, y + 71, 25, f'{_d.achievements:.4f}%', self.t_color[_d.level_index], anchor='mm')
-            self._tb.draw(x + 415, y + 96, 17, f'Ra: {_d.ra}', self.t_color[_d.level_index], anchor='mm')
-            self._tb.draw(x + 315, y + 124, 18, f'ds:{_d.ds}', self._id_text_color[_d.level_index], anchor='lm')
+            self._sy.draw(x + 142, y + 44, 17, title, self.t_color[_d.difficulties.level_index], 'lm')
+            self._tb.draw(x + 145, y + 124, 18, f'ID: {_d.song_id}', self._id_text_color[_d.difficulties.level_index], 'lm')
+            self._tb.draw(x + 210, y + 71, 25, f'{_d.oldachievements:.4f}%', self.t_color[_d.difficulties.level_index], anchor='mm')
+            self._tb.draw(x + 245, y + 96, 17, f'Ra: {_d.oldra}', self.t_color[_d.difficulties.level_index], anchor='mm')
+            self._tb.draw(x + 370, y + 71, 25, f'{_d.achievements:.4f}%', self.t_color[_d.difficulties.level_index], anchor='mm')
+            self._tb.draw(x + 415, y + 96, 17, f'Ra: {_d.ra}', self.t_color[_d.difficulties.level_index], anchor='mm')
+            self._tb.draw(x + 315, y + 124, 18, f'ds:{_d.ds}', self._id_text_color[_d.difficulties.level_index], anchor='lm')
             if _d.oldra > low_score:
                 new_ra = _d.ra - _d.oldra
             else:
                 new_ra = _d.ra - low_score
-            self._tb.draw(x + 390, y + 124, 18, f'Ra +{new_ra}', self._id_text_color[_d.level_index], 'lm')
+            self._tb.draw(x + 390, y + 124, 18, f'Ra +{new_ra}', self._id_text_color[_d.difficulties.level_index], 'lm')
          
     def draw_rise(self, sd: List[RiseScore], sd_score: int, dx: List[RiseScore], dx_score: int) -> Image.Image:
         """
@@ -421,7 +421,7 @@ async def rise_score_data(
         records = await maiApi.query_user_plate(qqid=qqid, username=username, version=list(DX_VERSION.values()))
         old_records: DefaultDict[int, Dict[int, float]] = defaultdict(dict)
         for m in records:
-            old_records[m.song_id][m.level_index] = m.achievements
+            old_records[m.song_id][m.difficulties.level_index] = m.achievements
         
         sd, sd_low_score = get_rise_score_list(old_records, 'SD', user.charts.sd, level, score)
         dx, dx_low_score = get_rise_score_list(old_records, 'DX', user.charts.dx, level, score)
@@ -466,14 +466,14 @@ def plate_message(
     """
     for n, m in enumerate(music_list):
         self_record = ''
-        if (m.song_id, m.level_index) in played:
+        if (m.song_id, m.difficulties.level_index) in played:
             if plan in ['将', '者']:
                 self_record = f'{m.achievements}%'
             if plan in ['極', '极', '神']:
                 self_record = m.fc
             if plan in '舞舞':
                 self_record = m.fs
-        result += f'No.{n + 1:02d} {f"「{m.song_id}」":>7} {f"「{DIFFS[m.level_index]}」":>11} 「{m.ds}」 {m.title}  {self_record}\n'
+        result += f'No.{n + 1:02d} {f"「{m.song_id}」":>7} {f"「{DIFFS[m.difficulties.level_index]}」":>11} 「{m.ds}」 {m.title}  {self_record}\n'
     if len(music_list) > 10:
         result = MessageSegment.file_image(image_to_bytesio(text_to_image(result.strip())))
     return result
@@ -529,18 +529,18 @@ async def player_plate_data(
         for music in verlist:
             if music.song_id not in plate_id_list:
                 continue
-            if music.level_index == 4 and music.song_id not in remaster:
+            if music.difficulties.level_index == 4 and music.song_id not in remaster:
                 continue
             if callable_(music):
-                unfinished.append((music.song_id, music.level_index))
-            played.append((music.song_id, music.level_index))
+                unfinished.append((music.song_id, music.difficulties.level_index))
+            played.append((music.song_id, music.difficulties.level_index))
     else:
         for music in verlist:
             if music.song_id not in plate_id_list:
                 continue
             if callable_(music):
-                unfinished.append((music.song_id, music.level_index))
-            played.append((music.song_id, music.level_index))
+                unfinished.append((music.song_id, music.difficulties.level_index))
+            played.append((music.song_id, music.difficulties.level_index))
     
     # 未游玩未完成曲目
     for music in mai.total_list:
@@ -560,7 +560,7 @@ async def player_plate_data(
                 _info = info.model_copy()
                 _info.level = music.level[level_index]
                 _info.ds = music.ds[level_index]
-                _info.level_index = level_index
+                _info.difficulties.level_index = level_index
                 unfinished_model_list[level_index].append(_info)
 
     basic, advanced, expert, master, re_master = unfinished_model_list
@@ -656,15 +656,15 @@ async def level_process_data(
         for _d in obj:
             if isinstance(_d, PlayInfoDefault):
                 _m = mai.total_list.by_id(_d.song_id)
-                ds: float = _m.ds[_d.level_index]
+                ds: float = _m.ds[_d.difficulties.level_index]
                 a: float = _d.achievements
                 ra, rate = computeRa(ds, a, israte=True)
                 _d.ra = ra
                 _d.rate = rate
             if (song_id := str(_d.song_id)) in music and _d.level == level:
                 if isinstance(music[song_id], Dict):
-                    music[song_id][_d.level_index] = PlanInfo()
-                    _p = music[song_id][_d.level_index]
+                    music[song_id][_d.difficulties.level_index] = PlanInfo()
+                    _p = music[song_id][_d.difficulties.level_index]
                 else:
                     music[song_id] = PlanInfo()
                     _p = music[song_id]
@@ -764,7 +764,7 @@ async def level_achievement_list_data(
             obj = await maiApi.query_user_plate(qqid=qqid, username=username, version=version)
             for _d in obj:
                 music = mai.total_list.by_id(_d.song_id)
-                _d.ds = music.ds[_d.level_index]
+                _d.ds = music.ds[_d.difficulties.level_index]
                 _d.ra, _d.rate = computeRa(_d.ds, _d.achievements, israte=True)
             data = obj
 

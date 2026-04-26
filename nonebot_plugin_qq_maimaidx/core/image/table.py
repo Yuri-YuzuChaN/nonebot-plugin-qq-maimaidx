@@ -209,7 +209,7 @@ class DrawRatingTable:
                 if _record is None:
                     continue
                 
-                record = _record.get(song.difficulties.difficulty)
+                record = _record.get(song.difficulties.level_index)
                 if record is None:
                     continue
                 

@@ -31,6 +31,10 @@ class PlayerBest50(ScoreBaseImage):
         self.service = service
         path = pic_dir / theme.value / "b50_bg.png"
         super().__init__(Image.open(path).convert("RGBA"), theme)
+        if theme == Theme.CIRCLE:
+            self.color = (249, 62, 172, 255)
+        else:
+            self.color = (124, 129, 255, 255)
         self.player = player
         self.best50 = best50
         self.qqid = qqid
@@ -163,5 +167,5 @@ class PlayerBest50(ScoreBaseImage):
 
         self.whiledraw(self.best50.sd, False)
         self.whiledraw(self.best50.dx, True)
-
+        
         return image_to_bytesio(self._im)

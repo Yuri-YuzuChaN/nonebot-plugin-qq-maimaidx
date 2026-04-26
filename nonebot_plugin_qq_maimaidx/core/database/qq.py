@@ -24,7 +24,8 @@ class User(UserBase, table=True):
     
     ID: int = Field(default=None, primary_key=True, index=True, exclude=True)
     open_id: str
-    qqid: int
+    qqid: int | None = Field(default=None)
+    friend_code: int | None = Field(default=None)
     access_token: str | None = Field(default=None)
     refresh_token: str | None = Field(default=None)
     service: ServiceName = Field(
@@ -59,12 +60,14 @@ async def update_user(
     open_id: str, 
     *, 
     qqid: int | None = None, 
+    friend_code: int | None = None, 
     service: ServiceName | None = None, 
     token: OAuth2Token | None = None,
     theme: Theme | None = None
 ) -> User | None:
     update_data = {
         "qqid": qqid,
+        "friend_code": friend_code,
         "service": service,
         "access_token": token.access_token if token else None,
         "refresh_token": token.refresh_token if token else None,
@@ -77,8 +80,11 @@ async def update_user(
         result = await session.exec(statement)
         if user := result.first():
             user.sqlmodel_update(update_data)
-            await session.commit()
-            await session.refresh(user)
+        else:
+            user = User(open_id=open_id)
+            session.add(user)
+        await session.commit()
+        await session.refresh(user)
         return user
 
 

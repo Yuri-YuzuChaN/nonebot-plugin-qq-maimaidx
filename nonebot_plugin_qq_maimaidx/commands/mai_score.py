@@ -6,7 +6,6 @@ from nonebot.matcher import Matcher
 from nonebot.params import CommandArg, Depends
 
 from ..core.clients.exceptions import UserNotBindError
-from ..core.clients.lxns.models.oauth import BaseToken
 from ..core.database.qq import User
 from ..core.merge.models.service import ServiceName
 from ..core.search import draw_best50, draw_play_data, draw_song_galobal_data
@@ -52,7 +51,6 @@ async def _(
 @lxinfo.handle()
 async def _(
     matcher: Matcher,
-    event: AtMessageCreateEvent | GroupAtMessageCreateEvent, 
     message: Message = CommandArg(), 
     user: User = Depends(get_user_db)
 ):
@@ -92,6 +90,7 @@ async def _(message: Message = CommandArg()):
     args = message.extract_plain_text().strip()
     if not args:
         await ginfo.finish("请输入曲目id或曲名")
+    
     if args[0] not in "绿黄红紫白":
         level_index = 3
     else:

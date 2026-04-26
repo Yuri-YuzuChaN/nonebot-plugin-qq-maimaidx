@@ -7,7 +7,7 @@ from .maimaidx_music import Music, mai
 
 def newbestscore(song_id: str, lv: int, value: int, bestlist: list[ChartInfo]) -> int:
     for v in bestlist:
-        if song_id == str(v.song_id) and lv == v.level_index:
+        if song_id == str(v.song_id) and lv == v.difficulties.level_index:
             if value >= v.ra:
                 return value - v.ra
             else:
@@ -143,7 +143,7 @@ async def draw_music_play_data(qqid: int, music_id: str) -> Union[str, MessageSe
             music = mai.total_list.by_id(music_id)
             diff = [None for _ in music.ds]
             for _d in data:
-                diff[_d.level_index] = _d
+                diff[_d.difficulties.level_index] = _d
             dev = True
         else:
             version = list(set(_v for _v in DX_VERSION.values()))
@@ -155,7 +155,7 @@ async def draw_music_play_data(qqid: int, music_id: str) -> Union[str, MessageSe
 
             for _d in data:
                 if _d.song_id == int(music_id):
-                    diff[_d.level_index] = _d
+                    diff[_d.difficulties.level_index] = _d
             if diff == _temp:
                 raise MusicNotPlayError
             dev = False
@@ -310,7 +310,7 @@ async def draw_rating_table(qqid: int, rating: str, isfc: bool = False) -> Union
                 continue
             if (id := str(_d.song_id)) not in fromid:
                 fromid[id] = {}
-            fromid[id][str(_d.level_index)] = {
+            fromid[id][str(_d.difficulties.level_index)] = {
                 'achievements': _d.achievements,
                 'fc': _d.fc,
                 'level': _d.level
@@ -437,7 +437,7 @@ async def draw_plate_table(qqid: int, version: str, plan: str) -> Union[str, Mes
                 continue
             _music = mai.total_list.by_id(_d.song_id)
             _d.table_level = _music.level
-            _d.ds = _music.ds[_d.level_index]
+            _d.ds = _music.ds[_d.difficulties.level_index]
             playerdata.append(_d)
 
         ra: Dict[str, Dict[str, list[Optional[PlayInfoDefault]]]] = {}
@@ -459,9 +459,9 @@ async def draw_plate_table(qqid: int, version: str, plan: str) -> Union[str, Mes
                 ra[_m.level[3]] = {}
             ra[_m.level[3]][_m.id] = [None for _ in range(number)]
         for _d in playerdata:
-            if number == 4 and _d.level_index == 4:
+            if number == 4 and _d.difficulties.level_index == 4:
                 continue
-            ra[_d.table_level[3]][str(_d.song_id)][_d.level_index] = _d
+            ra[_d.table_level[3]][str(_d.song_id)][_d.difficulties.level_index] = _d
         
         finished_bg = [Image.open(maimaidir / f't-{_}.png') for _ in range(4)]
         unfinished_bg = Image.open(maimaidir / 'unfinished_bg_2.png')

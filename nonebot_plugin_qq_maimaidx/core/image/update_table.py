@@ -233,10 +233,10 @@ class UpdateTable:
                     
                     cover = Image.open(song_chart(song.song_id)).resize((75, 75))
                     im.alpha_composite(cover, (x, y))
-                    im.alpha_composite(self._diff_bg[song.difficulties.difficulty], (x - 5, y - 5))
+                    im.alpha_composite(self._diff_bg[song.difficulties.level_index], (x - 5, y - 5))
                     ts.draw(
                         x + 56, y + 4, 13, song.song_id, 
-                        ScoreBaseImage._diff_text_color[song.difficulties.difficulty], "mm"
+                        ScoreBaseImage._diff_text_color[song.difficulties.level_index], "mm"
                     )
                     # if song.type == "DX":
                     #     im.alpha_composite(self._dx_small_bg, (x, y))

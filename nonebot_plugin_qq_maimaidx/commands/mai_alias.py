@@ -1,7 +1,7 @@
 import re
 
 from nonebot import on_command
-from nonebot.adapters.qq import AtMessageCreateEvent, GroupAtMessageCreateEvent, Message
+from nonebot.adapters.qq import Message
 from nonebot.params import CommandArg
 
 from ..core.service import mai
@@ -10,10 +10,7 @@ alias_song = on_command("查询别名")
 
 
 @alias_song.handle()
-async def _(
-    event: GroupAtMessageCreateEvent | AtMessageCreateEvent, 
-    message: Message = CommandArg()
-):
+async def _(message: Message = CommandArg()):
     args = message.extract_plain_text().strip()
     match = re.search(r"^(id)?\s?(.+)", args, re.IGNORECASE)
     if not match:

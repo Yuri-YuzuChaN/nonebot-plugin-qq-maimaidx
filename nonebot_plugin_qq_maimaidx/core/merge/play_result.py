@@ -40,7 +40,13 @@ def df_to_playresult(
     song: Song | None = None
 ) -> list[PlayedResult | NotPlayedResult]:
     if song:
-        r = [NotPlayedResult(level_value=v.level_value) for v in song.difficulties]
+        r = [
+            NotPlayedResult(
+                level_value=v.level_value,
+                song_id=song.song_id,
+                level_index=v.level_index
+            ) for v in song.difficulties
+        ]
     else:
         r = []
     
@@ -82,7 +88,14 @@ def lxns_to_playresult(
     song: Song | None = None
 ) -> list[PlayedResult | NotPlayedResult]:
     if song:
-        r = [NotPlayedResult(level_value=v.level_value) for v in song.difficulties]
+        r = [
+            NotPlayedResult(
+                level_value=v.level_value,
+                song_id=song.song_id,
+                level_index=v.level_index
+            )
+            for v in song.difficulties
+        ]
     else:
         r = []
     for v in data:

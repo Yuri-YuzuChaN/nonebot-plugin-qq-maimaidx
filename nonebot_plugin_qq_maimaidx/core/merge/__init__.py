@@ -60,7 +60,7 @@ async def merge_music_data(
                 charts = raw.charts[n]
                 notes = chart_notes_to_domain(charts.notes)
                 difficulties = Difficulties(
-                    difficulty=n,
+                    level_index=n,
                     level=raw.level[n],
                     level_value=ds,
                     note_designer=charts.charter or "",
@@ -83,7 +83,7 @@ async def merge_music_data(
                     _s = type_[-1]
                     song.difficulties.append(
                         Difficulties(
-                            difficulty=_s.difficulty,
+                            level_index=_s.difficulty,
                             level=_s.level,
                             level_value=_s.level_value,
                             note_designer=_s.note_designer,

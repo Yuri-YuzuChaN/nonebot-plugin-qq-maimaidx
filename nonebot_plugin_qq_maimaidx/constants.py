@@ -1,3 +1,4 @@
+from .core.merge.models.theme import Theme
 
 # echartsjs
 SNAPSHOT_JS = (
@@ -5,8 +6,13 @@ SNAPSHOT_JS = (
     "getDataURL({type: 'PNG', pixelRatio: 2, excludeComponents: ['toolbox']})"
 )
 
-# 常用变量
+# 常量
 SONGS_PER_PAGE = 25
+FORTUNE = [
+    "拼机", "推分", "越级", "下埋", "夜勤", "练底力", "练手法", 
+    "打旧框", "干饭", "抓绝赞", "收歌", "打大歌", "推AP"
+]
+THEME = {str(k): v for k, v in enumerate(Theme)}
 RANK_SP = [
     "d", "c", "b", "bb", "bbb", "a", "aa", 
     "aaa", "s", "sp", "ss", "ssp", "sss", "sssp"
@@ -86,6 +92,7 @@ DX_VERSION = {
     "镜": "maimai でらっくす PRiSM",
     "彩": "maimai でらっくす PRiSM PLUS"
 }
+ALL_VERSION = list(set(_v for _v in DX_VERSION.values()))
 VERSION_MAP = {
     "真": ([SD_VERSION["真"], SD_VERSION["初"]], "真"),
     "超": ([SD_VERSION["超"]], "超"),

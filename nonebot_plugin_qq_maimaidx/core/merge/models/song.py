@@ -3,12 +3,13 @@ from typing import Literal
 from pydantic import BaseModel
 
 from ...clients.divingfish.models.music import Stats
+from ...clients.lxns.models.enum import LevelIndex
 from ...clients.lxns.models.music import Notes
 
 
 class Difficulties(BaseModel):
     
-    difficulty: int
+    level_index: LevelIndex
     level: str
     level_value: float
     note_designer: str

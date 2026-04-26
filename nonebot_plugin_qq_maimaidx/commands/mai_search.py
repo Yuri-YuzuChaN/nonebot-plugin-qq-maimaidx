@@ -15,7 +15,7 @@ from ..core.database.qq import User
 from ..core.image.tools import text_to_bytes_io
 from ..core.search import draw_chart_info
 from ..core.service import mai
-from .extra import get_user_db
+from .extra import get_optional_user, get_user_db
 
 search_music        = on_command("查歌")
 search_base         = on_command("定数查歌")
@@ -42,16 +42,12 @@ def song_level(ds1: float, ds2: float) -> list[tuple[str, str, float, str]]:
         if int(music.song_id) >= 100000:
             continue
         for d in music.difficulties:
-            result.append((music.song_id, music.song_name, d.level_value, DIFFS[d.difficulty]))
+            result.append((music.song_id, music.song_name, d.level_value, DIFFS[d.level_index]))
     return result
 
 
 @search_music.handle()
-async def _(
-    event: GroupAtMessageCreateEvent | AtMessageCreateEvent, 
-    message: Message = CommandArg(), 
-    user: User = Depends(get_user_db)
-):
+async def _(message: Message = CommandArg(), user: User | None = Depends(get_optional_user)):
     name = message.extract_plain_text().strip()
     page = 1
     if not name:
@@ -78,10 +74,7 @@ async def _(
 
 
 @search_base.handle()
-async def _(
-    event: GroupAtMessageCreateEvent | AtMessageCreateEvent, 
-    message: Message = CommandArg()
-):
+async def _(message: Message = CommandArg()):
     args = message.extract_plain_text().strip().split()
     if len(args) > 4 or len(args) == 0:
         await search_base.finish(
@@ -121,10 +114,7 @@ async def _(
 
 
 @search_bpm.handle()
-async def _(
-    event: GroupAtMessageCreateEvent | AtMessageCreateEvent, 
-    message: Message = CommandArg()
-):
+async def _(message: Message = CommandArg()):
     args = message.extract_plain_text().strip().split()
     page = 1
     if len(args) == 1:
@@ -160,10 +150,7 @@ async def _(
 
 
 @search_artist.handle()
-async def _(
-    event: GroupAtMessageCreateEvent | AtMessageCreateEvent, 
-    message: Message = CommandArg()
-):
+async def _( message: Message = CommandArg()):
     args = message.extract_plain_text().strip().split()
     page = 1
     if len(args) == 1:
@@ -195,10 +182,7 @@ async def _(
 
 
 @search_designer.handle()
-async def _(
-    event: GroupAtMessageCreateEvent | AtMessageCreateEvent, 
-    message: Message = CommandArg()
-):
+async def _(message: Message = CommandArg()):
     args = message.extract_plain_text().strip().split()
     page = 1
     if len(args) == 1:
@@ -237,10 +221,7 @@ async def _(
 
 
 @search_alias_song.handle()
-async def _(
-    event: GroupAtMessageCreateEvent | AtMessageCreateEvent, 
-    message: Message = CommandArg(), user: User = Depends(get_user_db)
-):
+async def _(message: Message = CommandArg(), user: User = Depends(get_user_db)):
     name = message.extract_plain_text().strip().lower()
     error_msg = f"未找到别名为「{name}」的歌曲"
     # 别名
@@ -298,11 +279,7 @@ async def _(
 
 
 @query_chart.handle()
-async def _(
-    event: GroupAtMessageCreateEvent | AtMessageCreateEvent, 
-    message: Message = CommandArg(), 
-    user: User = Depends(get_user_db)
-):
+async def _(message: Message = CommandArg(), user: User = Depends(get_user_db)):
         
     _id = message.extract_plain_text().strip()
     if not _id.isdigit():

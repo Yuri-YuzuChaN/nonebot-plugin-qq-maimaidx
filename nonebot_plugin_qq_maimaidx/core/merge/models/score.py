@@ -3,13 +3,18 @@ from pydantic import BaseModel, field_validator
 from ...clients.lxns.models.enum import FCType, FSType, LevelIndex, RateType
 
 
-class NotPlayedResult(BaseModel):
+class BaseResult(BaseModel):
     
     level_value: float
     """谱面定数"""
 
 
-class Result(NotPlayedResult):
+class NotPlayedResult(BaseResult):
+    
+    song_id: int
+    level_index: LevelIndex
+
+class Result(BaseResult):
     
     song_id: int
     song_name: str

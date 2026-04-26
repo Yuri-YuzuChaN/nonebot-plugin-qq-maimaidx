@@ -33,7 +33,7 @@ class MusicList(RootModel):
                 if diff.level == level:
                     result[song.song_id].append(diff)
         
-        return dict(result)
+        return result
     
     def by_level_list(self) -> dict[str, dict[str, list[SimpleSong]]]:
         temp_result = defaultdict(lambda: defaultdict(list))
