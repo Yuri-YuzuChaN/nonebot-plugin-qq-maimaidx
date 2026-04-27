@@ -1,3 +1,6 @@
+import random
+import time
+
 from nonebot.adapters.qq.message import LocalAttachment, MessageSegment
 
 from ..config import dfconfig
@@ -8,20 +11,32 @@ from .clients.lxns.client import LxnsAPI, OAuth2
 from .clients.lxns.models.enum import SongType
 from .clients.lxns.models.oauth import *
 from .database.qq import User, update_user
-from .image.best50 import PlayerBest50
-from .image.chart import song_chart_info, song_global_data
-from .image.info import song_play_data
-from .image.score import DrawScore
-from .image.table import DrawPlateTable, DrawRatingTable
-from .image.tools import tricolor_gradient_prism_plus
-from .merge.models.category import Category
-from .merge.models.score import NotPlayedResult, PlayedResult
-from .merge.models.service import ServiceName
-from .merge.models.song import Song
-from .merge.models.theme import Theme
+from .image import (
+    DrawPlateTable,
+    DrawRatingTable,
+    DrawScore,
+    PlayerBest50,
+    song_chart_info,
+    song_global_data,
+    song_play_data,
+    text_to_bytes_io,
+    tricolor_gradient_prism_plus,
+)
+from .merge.models import (
+    Best50,
+    Category,
+    NotPlayedResult,
+    PlayedResult,
+    Player,
+    RiseResult,
+    ServiceName,
+    Song,
+    Theme,
+)
 from .merge.play_result import df_to_playresult, lxns_to_playresult
 from .merge.player import df_to_best50, df_to_player, lxns_to_best50
 from .service import mai
+from .utils.calc import compute_rating
 from .utils.song_id import get_charts_id
 
 PLAN_MAP: dict[str, tuple[int, int | float]] = {
@@ -31,7 +46,21 @@ PLAN_MAP: dict[str, tuple[int, int | float]] = {
 }
 
 
+def get_rows(count: int, row_size: int) -> int:
+    if count == 0:
+        return 0
+    return (count + row_size - 1) // row_size
+
+
 def get_token(user: User) -> BaseToken:
+    """
+    获取用户 token
+    
+    Params:
+        `user`: 用户 `User` 模型
+    Returns:
+        `BaseToken`
+    """
     return BaseToken(
         access_token=user.access_token, 
         refresh_token=user.refresh_token
@@ -42,12 +71,30 @@ async def get_friend_code(
     qqid: int,
     token: OAuth2Token | BaseToken, 
 ) -> int:
+    """
+    获取好友码
+    
+    Params:
+        `qqid`: 用户QQ
+        `token`: 用户 `token`
+    Returns:
+        `int`
+    """
     api = LxnsAPI(qqid, token=token)
     player = await api.player()
     return player.friend_code
 
 
 async def bind_lxns(user: User, code: str) -> str:
+    """
+    绑定落雪查分器
+    
+    Params:
+        `user`: 用户 `User` 模型
+        `code`: 授权码
+    Returns:
+        `str`
+    """
     oauth = OAuth2()
     token = await oauth.fetch_token(code)
     friend_code = await get_friend_code(user.qqid, token)
@@ -58,6 +105,31 @@ async def bind_lxns(user: User, code: str) -> str:
         result = "授权完成。"
     return result
 
+
+async def get_best50(
+    user: User, 
+    *, 
+    username: str | None = None, 
+    all_perfect: bool = False
+) -> tuple[Player, Best50]:
+    if user.service == ServiceName.DIVINGFISH:
+        api = DivingFishAPI(user.qqid, username)
+        userinfo = await api.query_user_b50()
+        player = df_to_player(userinfo)
+        best50 = df_to_best50(userinfo)
+    elif user.service == ServiceName.LXNS:
+        token = get_token(user)
+        api = LxnsAPI(user.open_id, token)
+        player = await api.player()
+        if all_perfect:
+            obj = await api.ap50(player.friend_code)
+        else:
+            obj = await api.best50()
+        best50 = lxns_to_best50(obj)
+    else:
+        raise ValueError
+    
+    return player, best50
 
 async def get_player_result(
     user: User, 
@@ -92,10 +164,80 @@ async def get_player_result(
     return play_result
 
 
-async def draw_song_galobal_data(
-    song_id: int, 
-    level_index: int
-) -> LocalAttachment:
+def get_rise_score_list(
+    old_records: dict[tuple[int, int], PlayedResult],
+    type: SongType, 
+    play_result: list[PlayedResult], 
+    level: str | None = None, 
+    score: int | None = None
+) -> tuple[list[RiseResult], int]:
+    """
+    随机获取加分曲目
+    
+    Params:
+        `type`: 版本
+        `info`: 游玩成绩列表
+        `level`: 等级
+        `score`: 分数
+    Returns:
+        `Tuple[List[RiseScore], int]`
+    """
+    if not play_result:
+        return [], 0
+    
+    lowest_ra = play_result[-1].rating
+    target_ra = lowest_ra + (score if score else 0)
+    
+    ignore = [p.song_id for p in play_result if p.achievements >= 100.5]
+    
+    min_ds = round(lowest_ra / 22.4, 1)
+    max_ds = round((lowest_ra + 100) / 20.8, 1)
+    
+    version = [DX_VERSION[-1]] if type == type.DX else DX_VERSION[:-1]
+    
+    songs = mai.total_list.filter(
+        level=level, level_value=(min_ds, max_ds), version_str=version
+    )
+    rise_result: list[RiseResult] = []
+    
+    for song in songs:
+        song_id = song.song_id
+        if song_id in ignore or song_id >= 100000:
+            continue
+        
+        for diff in song.difficulties:
+            for r in ACHIEVEMENT_LIST[-4:]:
+                new_ra, new_rate = compute_rating(diff.level_value, r, israte=True)
+
+                if new_ra > target_ra:
+                    old_result = old_records.get((song_id, diff.level_index))
+                    
+                    if old_result and old_result.rating >= new_ra:
+                        continue
+                    
+                    rise = RiseResult(
+                        song_id=song_id,
+                        song_name=song.song_name,
+                        level_index=diff.level_index,
+                        type=song.type,
+                        rating=new_ra,
+                        achievements=target_ra,
+                        rate=new_rate,
+                        level_value=diff.level_value,
+                        old_rating=old_result.rating,
+                        old_achievements=old_result.achievements,
+                        old_rate=old_result.rate
+                    )
+                    rise_result.append(rise)
+                    break
+                
+    sampled = random.sample(rise_result, min(len(rise_result), 5))
+    sampled.sort(key=lambda x: x.level_value, reverse=True)
+    
+    return sampled, lowest_ra
+
+
+async def draw_song_galobal_data(song_id: int, level_index: int) -> LocalAttachment:
     """
     绘制谱面数据
     
@@ -135,40 +277,15 @@ async def draw_best50(
     绘制best50
     
     Params:
-        `service`: 数据源
         `user`: 用户 `User` 模型
         `username`: 用户名
         `icon`: 头像
-        `token`: OAuth2 Token（仅LXNS）
         `all_perfect`: 绘制AP（仅LXNS）
     Returns:
         `LocalAttachment`
     """
-    if user.service == ServiceName.DIVINGFISH:
-        api = DivingFishAPI(user.qqid, username)
-        userinfo = await api.query_user_b50()
-        b50 = PlayerBest50(
-            user.service,
-            user.theme,
-            player=df_to_player(userinfo),
-            best50=df_to_best50(userinfo),
-            qqid=user.qqid,
-            icon=icon
-        )
-    elif user.service == ServiceName.LXNS:
-        token = get_token(user)
-        api = LxnsAPI(user.open_id, token)
-        player = await api.player()
-        if all_perfect:
-            obj = await api.ap50(player.friend_code)
-        else:
-            obj = await api.best50()
-        best50 = lxns_to_best50(obj)
-        
-        b50 = PlayerBest50(user.service, user.theme, player=player, best50=best50)
-    else:
-        raise ValueError
-    
+    player, best50 = await get_best50(user, username=username, all_perfect=all_perfect)
+    b50 = PlayerBest50(user, player=player, best50=best50, icon=icon)
     return MessageSegment.file_image(await b50.draw())
 
 
@@ -181,10 +298,9 @@ async def draw_play_data(
     绘制单曲游玩成绩
     
     Params:
-        `service`: 数据源
-        `song`: 曲目
         `user`: 用户 `User` 模型
-        `token`: OAuth2 Token（仅LXNS）
+        `song`: 曲目
+        `service`: 数据源
     Returns:
         `LocalAttachment`
     """
@@ -287,9 +403,8 @@ async def draw_rating_table(
     绘制定数表
     
     Params:
-        `service`: 数据源
-        `rating`: 定数
         `user`: 用户 `User` 模型
+        `rating`: 定数
         `plan`: 指定计划
     Returns:
         `LocalAttachment`
@@ -315,12 +430,10 @@ async def draw_plate_table(
     绘制完成表
     
     Params:
-        `service`: 数据源
+        `user`: 用户 `User` 模型
         `version`: 版本
         `plan`: 指定计划
-        `user`: 用户 `User` 模型
         `page`: 页数
-        `token`: OAuth2 Token（仅LXNS）
     Returns:
         `LocalAttachment`
     """
@@ -343,14 +456,54 @@ async def draw_plate_progress() -> LocalAttachment:
     绘制牌子完成进度
 
     Params:
-        `service`: 数据源
         `user`: 用户 `User` 模型
         `level`: 定数
         `plan`: 评价等级
-        `token`: OAuth2 Token（仅LXNS）
     Returns:
         `LocalAttachment`
     """
+
+
+async def draw_rise_score_list(
+    user: User, 
+    username: str | None = None,
+    level: str | None = None,
+    score: int | None = None
+) -> LocalAttachment:
+    """
+    绘制上分推荐表
+    Params:
+        `user`: 用户 `User` 模型
+        `username`: 查分器用户名
+        `level`: 定数
+        `score`: 分数
+    Returns:
+        `LocalAttachment`
+    """
+    player, best50 = await get_best50(user, username=username)
+    play_result = await get_player_result(user, ALL_VERSION)
+    
+    old_records = {(v.song_id, v.level_index) : v for v in play_result}
+    
+    sd, sd_low_score = get_rise_score_list(
+        old_records, SongType.STANDARD, best50.sd, level, score
+    )
+    dx, dx_low_score = get_rise_score_list(
+        old_records, SongType.DX, best50.dx, level, score
+    )
+    
+    if not sd and not dx:
+        raise ValueError
+    
+    max_count = max(len(sd), len(dx))
+    total_height = max_count * 140 + 260
+    
+    background_bg = tricolor_gradient_prism_plus(1400, total_height)
+    ds = DrawScore(user.service, background_bg)
+    
+    image = ds.draw_rise(sd, sd_low_score, dx, dx_low_score)
+    
+    return MessageSegment.file_image(image)
 
 
 async def draw_level_progress(
@@ -416,9 +569,12 @@ async def draw_level_progress(
     
     if category == Category.DEFAULT:
         comp_limit = 60 if not unfinished and not notplayed else 30
-        c_y = (len(completed[:comp_limit]) // 5 + 1) * 109 + 140
-        u_y = (len(unfinished[:30]) // 5 + 1) * 109 + 140
-        n_y = (len(notplayed[:100]) // 20 + 1) * 65 + 140
+        c_row = len(completed[:comp_limit])
+        c_y = get_rows(c_row, 5) * 109 + 140
+        u_row = len(unfinished[:30])
+        u_y = get_rows(u_row, 5) * 109 + 140
+        n_row = len(notplayed[:100])
+        n_y = get_rows(n_row, 20) * 65 + 140
         
         background_bg = tricolor_gradient_prism_plus(1400, 150 + c_y + u_y + n_y)
         ds = DrawScore(user.service, background_bg)
@@ -431,14 +587,17 @@ async def draw_level_progress(
             page = total_page
         
         display_data = data[(page - 1) * per_page : page * per_page]
-        y_size = (len(display_data) // 5 + 1) * 109
+        y_size = get_rows(len(display_data), 5) * 109
         background_bg = tricolor_gradient_prism_plus(1400, 240 + y_size + 120)
         ds = DrawScore(user.service, background_bg)
         image = ds.draw_category(category, data, page, total_page)
     
     else:
-        y_size = (len(notplayed) // 20 + 1) * 65
-        background_bg = tricolor_gradient_prism_plus(1400, 240 + y_size + 120)
+        y_size = get_rows(len(notplayed), 20) * 65
+        height = 240 + y_size + 120
+        if height < 600:
+            height = 600
+        background_bg = tricolor_gradient_prism_plus(1400, height)
         ds = DrawScore(user.service, background_bg)
         image = ds.draw_category(category, notplayed)
     
@@ -492,14 +651,45 @@ async def draw_level_score_list(
     return MessageSegment.file_image(image)
 
 
-async def draw_rise_score_list() -> LocalAttachment:
-    """
-    绘制上分推荐表
-    """
-
-
-async def draw_rating_ranking() -> LocalAttachment:
+async def draw_rating_ranking(name: str, page: int) -> LocalAttachment:
     """
     查看查分器排行榜
     """
+    api = DivingFishAPI()
+    rank_data = await api.rating_ranking()
+    user_rows = len(rank_data)
+    current_time = time.strftime("%Y-%m-%d %H:%M:%S")
+
+    if name:
+        found_data = next(
+            (
+                (idx + 1, r.username) for idx, r in enumerate(rank_data) 
+                if r.username.lower() == name
+            ), None
+        )
+        if found_data:
+            rank_index, nickname = found_data
+            data = (
+                f"截止至「{current_time}」玩家「{nickname}」\n"
+                f"在查分器已注册用户 RA 排行第「{rank_index}」位"
+            )
+        else:
+            data = f"未在查分器排行榜前「{user_rows}」名中找到玩家「{name}」"
+        return data
     
+    per_page = 50
+    total_pages = (user_rows + per_page - 1) // per_page
+    
+    page = max(1, min(page, total_pages))
+    start_idx = (page - 1) * per_page
+    end_idx = min(start_idx + per_page, user_rows)
+    
+    header = f"截止至「{current_time}」，查分器已注册用户 RA 排行：\n"
+    lines = [
+        f"No.{i:02d}.「{r.ra}」 {r.username}" 
+        for i, r in enumerate(rank_data[start_idx:end_idx], start=start_idx + 1)
+    ]
+    footer = f"\n第「{page} / {total_pages}」页，共「{user_rows}」名玩家"
+    
+    full_msg = header + "\n".join(lines) + footer
+    return MessageSegment.file_image(text_to_bytes_io(full_msg))

@@ -8,10 +8,8 @@ from ...constants import ACHIEVEMENT_LIST, BASE_RA_SPP
 from ...resources import pic_dir, static
 from ..clients.http import lxns_assets, qqlogo
 from ..clients.lxns.models.collection import Collection
-from ..merge.models.best50 import Best50
-from ..merge.models.player import Player
-from ..merge.models.service import ServiceName
-from ..merge.models.theme import Theme
+from ..database.qq import User
+from ..merge.models import Best50, Player, Theme
 from .base import ScoreBaseImage
 from .tools import image_to_bytesio
 
@@ -20,24 +18,22 @@ class PlayerBest50(ScoreBaseImage):
     
     def __init__(
         self, 
-        service: ServiceName,
-        theme: Theme,
+        user: User,
         *, 
         player: Player, 
         best50: Best50, 
-        qqid: int | None = None,
         icon: str | None = None
     ) -> None:
-        self.service = service
-        path = pic_dir / theme.value / "b50_bg.png"
-        super().__init__(Image.open(path).convert("RGBA"), theme)
-        if theme == Theme.CIRCLE:
+        self.service = user.service
+        path = pic_dir / user.theme.value / "b50_bg.png"
+        super().__init__(Image.open(path).convert("RGBA"), user.theme)
+        if user.theme == Theme.CIRCLE:
             self.color = (249, 62, 172, 255)
         else:
             self.color = (124, 129, 255, 255)
         self.player = player
         self.best50 = best50
-        self.qqid = qqid
+        self.qqid = user.qqid
         self.icon = icon
 
     def _get_base_ra(self, achievements: float) -> float:

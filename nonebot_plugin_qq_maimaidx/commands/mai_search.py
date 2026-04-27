@@ -2,12 +2,7 @@ import re
 from textwrap import dedent
 
 from nonebot import on_command
-from nonebot.adapters.qq import (
-    AtMessageCreateEvent,
-    GroupAtMessageCreateEvent,
-    Message,
-    MessageSegment,
-)
+from nonebot.adapters.qq import Message, MessageSegment
 from nonebot.params import CommandArg, Depends
 
 from ..constants import DIFFS, SONGS_PER_PAGE

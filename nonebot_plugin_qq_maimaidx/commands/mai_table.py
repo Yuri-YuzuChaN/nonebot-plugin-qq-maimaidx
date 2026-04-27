@@ -39,7 +39,6 @@ level_process           = on_command("等级进度")
 level_score_list        = on_command("分数列表")
 
 
-
 @rating_table.handle()
 async def _(message: Message = CommandArg()):
     rating = message.extract_plain_text().strip()
@@ -126,13 +125,7 @@ async def _(message: Message = CommandArg(), user: User = Depends(get_user_db)):
     else:
         category = Category.DEFAULT
     
-    data = await draw_level_progress(
-        user, 
-        level, 
-        plan, 
-        category, 
-        int(page)
-    )
+    data = await draw_level_progress(user, level, plan, category, int(page))
     await level_process.send(data)
 
 

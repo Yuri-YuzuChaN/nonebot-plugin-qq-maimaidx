@@ -2,7 +2,7 @@ from typing import Literal
 
 from loguru import logger as log
 from nonebot import get_driver, get_plugin_config
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel
 
 driver = get_driver()
 
