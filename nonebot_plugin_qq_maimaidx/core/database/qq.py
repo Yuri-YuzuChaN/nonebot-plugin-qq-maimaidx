@@ -8,7 +8,7 @@ from ...resources import data_dir
 from ..clients.lxns.models.oauth import OAuth2Token
 from ..merge.models import ServiceName, Theme
 
-db = data_dir / "user3.db"
+db = data_dir / "user.db"
 
 metadata_user = MetaData()
 
