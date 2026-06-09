@@ -1,63 +1,58 @@
+import re
 from textwrap import dedent
 
 from nonebot import on_command
-from nonebot.adapters.qq import AtMessageCreateEvent, GroupAtMessageCreateEvent, Message
+from nonebot.adapters.qq import (
+    AtMessageCreateEvent,
+    GroupAtMessageCreateEvent,
+    Message,
+    MessageSegment,
+)
 from nonebot.matcher import Matcher
 from nonebot.params import CommandArg, Depends
 
+from ..config import log
 from ..core.clients.exceptions import UserNotBindError
 from ..core.database.qq import User
-from ..core.merge.models.service import ServiceName
-from ..core.search import draw_best50, draw_play_data, draw_song_galobal_data
+from ..core.handler import draw_best50, draw_play_data, draw_song_galobal_data
+from ..core.image.tools import text_to_bytes_io
 from ..core.service import mai
-from .extra import get_user_db
+from .depend import GetUserAndAuth
 
-dfb50   = on_command("b50")
-lxb50   = on_command("lx50")
-info    = on_command("info")
-dfinfo  = on_command("dfinfo")
-lxinfo  = on_command("lxinfo")
-ginfo   = on_command("ginfo")
+best50 = on_command("b50")
+info = on_command("info")
+ginfo = on_command("ginfo")
+score = on_command("分数线")
 
 
-@dfb50.handle()
-@lxb50.handle()
+@best50.handle()
 async def _(
     matcher: Matcher,
-    event: AtMessageCreateEvent | GroupAtMessageCreateEvent, 
-    message: Message = CommandArg(), 
-    user: User = Depends(get_user_db)
+    event: AtMessageCreateEvent | GroupAtMessageCreateEvent,
+    message: Message = CommandArg(),
+    user: User = Depends(GetUserAndAuth),
 ):
     try:
         username = message.extract_plain_text().strip()
         icon = None
         if isinstance(event, AtMessageCreateEvent) and not username:
             icon = event.author.avatar
-        if isinstance(matcher, dfb50):
-            result = await draw_best50(
-                user, 
-                username=username, 
-                icon=icon
-            )
-        else:
-            result = await draw_best50(user)
+        result = await draw_best50(user, username=username, icon=icon)
     except UserNotBindError as e:
         result = str(e)
     await matcher.send(result)
 
 
 @info.handle()
-@dfinfo.handle()
-@lxinfo.handle()
 async def _(
     matcher: Matcher,
-    message: Message = CommandArg(), 
-    user: User = Depends(get_user_db)
+    message: Message = CommandArg(),
+    user: User = Depends(GetUserAndAuth),
 ):
     data = message.extract_plain_text().strip()
     if not data:
         await matcher.finish("请输入曲目id或曲名")
-    
+
     if data.isdigit() and mai.total_list.by_id(int(data)):
         song_id = data
     elif by_t := mai.total_list.by_name(data):
@@ -74,14 +69,8 @@ async def _(
         else:
             song_id = aliases[0].song_id
     song = mai.total_list.by_id(int(song_id))
-    
-    if isinstance(matcher, info):
-        service = None
-    elif isinstance(matcher, dfinfo):
-        service = ServiceName.DIVINGFISH
-    else:
-        service = ServiceName.LXNS
-    result = await draw_play_data(user, song, service=service)
+
+    result = await draw_play_data(user, song)
     await matcher.send(result)
 
 
@@ -90,7 +79,7 @@ async def _(message: Message = CommandArg()):
     args = message.extract_plain_text().strip()
     if not args:
         await ginfo.finish("请输入曲目id或曲名")
-    
+
     if args[0] not in "绿黄红紫白":
         level_index = 3
     else:
@@ -113,10 +102,10 @@ async def _(message: Message = CommandArg()):
             await ginfo.finish(msg.strip())
         else:
             id = str(alias[0].song_id)
-    
+
     song = mai.total_list.by_id(id)
     stats = song.difficulties[level_index].stats
-    
+
     if len(song.difficulties) == 4 and level_index == 4:
         await ginfo.finish("该乐曲没有这个等级")
     if not song.difficulties[level_index]:
@@ -129,3 +118,60 @@ async def _(message: Message = CommandArg()):
         平均 DX 分数：{stats.avg_dx:.1f}
         谱面成绩标准差：{stats.std_dev:.2f}""")
     await ginfo.send(data)
+
+
+@score.handle()
+async def _(message: Message = CommandArg()):
+    _args = message.extract_plain_text().strip()
+    args = _args.split()
+    if args and args[0] == "帮助":
+        msg = dedent("""\
+            此功能为查找某首歌分数线设计。
+            命令格式：分数线「难度+歌曲id」「分数线」
+            例如：分数线 紫799 100
+            命令将返回分数线允许的「TAP」「GREAT」容错，
+            以及「BREAK」50落等价的「TAP」「GREAT」数。
+            以下为「TAP」「GREAT」的对应表：
+                    GREAT / GOOD / MISS
+            TAP         1 / 2.5  / 5
+            HOLD        2 / 5    / 10
+            SLIDE       3 / 7.5  / 15
+            TOUCH       1 / 2.5  / 5
+            BREAK       5 / 12.5 / 25 (外加200落)
+        """).strip()
+        await score.finish(MessageSegment.image(text_to_bytes_io(msg)))
+    else:
+        try:
+            result = re.search(r"([绿黄红紫白])\s?([0-9]+)", _args)
+            level_labels = ["绿", "黄", "红", "紫", "白"]
+            level_labels2 = ["Basic", "Advanced", "Expert", "Master", "Re:MASTER"]
+            level_index = level_labels.index(result.group(1))
+            chart_id = int(result.group(2))
+            line = float(args[-1])
+            song = mai.total_list.by_id(chart_id)
+            chart = song.difficulties[level_index]
+            tap = int(chart.notes.tap)
+            slide = int(chart.notes.slide)
+            hold = int(chart.notes.hold)
+            touch = int(chart.notes.touch)
+            brk = int(chart.notes.brk)
+            total_score = (
+                tap * 500 + slide * 1500 + hold * 1000 + touch * 500 + brk * 2500
+            )
+            break_bonus = 0.01 / brk
+            break_50_reduce = total_score * break_bonus / 4
+            reduce = 101 - line
+            if reduce <= 0 or reduce >= 101:
+                raise ValueError
+            msg = (
+                f"{song.song_name}「{level_labels2[level_index]}」\n"
+                f"分数线「{line}%」\n允许的最多「TAP」「GREAT」数量为\n"
+                f"「{(total_score * reduce / 10000):.2f}」(每个-{10000 / total_score:.4f}%),\n"
+                f"「BREAK」50落(一共「{brk}」个)\n"
+                f"等价于「{(break_50_reduce / 100):.3f}」个「TAP」"
+                f"「GREAT」(-{break_50_reduce / total_score * 100:.4f}%)"
+            )
+            await score.finish(msg)
+        except (AttributeError, ValueError) as e:
+            log.exception(e)
+            await score.finish("格式错误，输入“分数线 帮助”以查看帮助信息")

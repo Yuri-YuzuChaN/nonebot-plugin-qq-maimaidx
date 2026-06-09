@@ -1,13 +1,12 @@
 import re
 
 from nonebot import on_command
-from nonebot.adapters.qq import Message
+from nonebot.adapters.qq import Message, MessageSegment
 from nonebot.params import CommandArg, Depends
 
-from ..constants import *
+from ..constants import COMBO_PLUS, LEVEL_LIST, RANK_PLUS, SYNC_PLUS
 from ..core.database.qq import User
-from ..core.merge.models.category import Category
-from ..core.search import (
+from ..core.handler import (
     draw_level_progress,
     draw_level_score_list,
     draw_plate_progress,
@@ -15,15 +14,17 @@ from ..core.search import (
     draw_rating_table,
     draw_rating_table_text,
 )
-from .extra import get_user_db
+from ..core.merge.models import Category
+from ..resources import pic_dir
+from .depend import GetUserAndAuth
 
 TABLE_PATTERN = (
     r"^([真超檄橙暁晓桃櫻樱紫菫堇白雪輝辉舞霸熊華华爽煌星宙祭祝双宴镜彩])"
-    r"([極极将舞神者]舞?)\s?([12])?"
+    r"([極极将舞神者]舞?)\s?([12]+)?$"
 )
-RATING_PATTERN = r"^([0-9]+\+?)(ap|app|fc|fcp|fs|fsp|fdx|fdxp)?"
-LEVEL_PATTERN = r"([0-9]+\+?)\s?([abcdsfxp\+]+)\s?([\u4e00-\u9fa5]+)?\s?([0-9]+)?\s?(.+)?"
-LEVEL_LIST_PATTERN = r"([0-9]+\.?[0-9]?\+?)\s?([0-9]+)?\s?(.+)?"
+RATING_PATTERN = r"^([0-9]+\+?)((s+|ap|fc|fs|fdx)\+?)?\s?"
+LEVEL_PATTERN = r"^([0-9]+\+?)\s?((a+|b+|c|d|s+|ap|fc|fs|fdx)\+?)\s?([\u4e00-\u9fa5]+)?\s?([0-9]+)?$"
+LEVEL_LIST_PATTERN = r"([0-9]+\.?[0-9]?\+?)\s?([0-9]+)?$"
 CATEGORY_ALIAS = {
     "已完成": Category.COMPLETED,
     "未完成": Category.UNFINISHED,
@@ -32,11 +33,12 @@ CATEGORY_ALIAS = {
 }
 
 
-rating_table            = on_command("定数表")
-rating_table_pf         = on_command("完成表")
-plate_process           = on_command("牌子进度")
-level_process           = on_command("等级进度")
-level_score_list        = on_command("分数列表")
+rating_table = on_command("定数表")
+rating_table_pfm = on_command("完成表")
+plate_table_condition = on_command("牌子条件")
+plate_process = on_command("牌子进度")
+level_process = on_command("等级进度")
+level_score_list = on_command("分数列表")
 
 
 @rating_table.handle()
@@ -51,20 +53,21 @@ async def _(message: Message = CommandArg()):
     await rating_table.send(result)
 
 
-@rating_table_pf.handle()
-async def _(message: Message = CommandArg(), user: User = Depends(get_user_db)):
+@rating_table_pfm.handle()
+async def _(message: Message = CommandArg(), user: User = Depends(GetUserAndAuth)):
     args = message.extract_plain_text().strip()
     _rating = re.search(RATING_PATTERN, args, re.IGNORECASE)
     plate = re.search(TABLE_PATTERN, args)
-    
+
     if _rating:
-        rating = _rating.group(1)
+        ra = _rating.group(1)
         plan = _rating.group(2)
         if args in LEVEL_LIST[:6]:
             result = "只支持查询lv7-15的完成表"
-        elif rating in LEVEL_LIST[6:]:
-            plan_ = True if plan and plan.lower() in COMBO_SP + SYNC_SP else False
-            result = await draw_rating_table(user, rating, plan_)
+        elif ra in LEVEL_LIST[6:]:
+            result = await draw_rating_table(
+                user, ra, True if plan and plan.lower() in COMBO_PLUS else False
+            )
         else:
             result = "无法识别的表格"
     elif plate:
@@ -72,16 +75,23 @@ async def _(message: Message = CommandArg(), user: User = Depends(get_user_db)):
         plan = plate.group(2)
         page = plate.group(3) or 1
         if f"{version}{plan}" == "真将":
-            await rating_table_pf.finish("真代没有真将哦")
+            await rating_table_pfm.finish("真代没有真将哦")
         result = await draw_plate_table(user, version, plan, int(page))
     else:
         result = "无法识别的表格"
-    
-    await rating_table_pf.send(result)
-        
+
+    await rating_table_pfm.send(result)
+
+
+@plate_table_condition.handle()
+async def _():
+    await plate_table_condition.send(
+        MessageSegment.file_image(pic_dir / "table_condition.jpg")
+    )
+
 
 @plate_process.handle()
-async def _(message: Message = CommandArg(), user: User = Depends(get_user_db)):
+async def _(message: Message = CommandArg(), user: User = Depends(GetUserAndAuth)):
     username = None
     args = message.extract_plain_text().lower()
     match = re.search(TABLE_PATTERN, args)
@@ -97,7 +107,7 @@ async def _(message: Message = CommandArg(), user: User = Depends(get_user_db)):
 
 
 @level_process.handle()
-async def _(message: Message = CommandArg(), user: User = Depends(get_user_db)):
+async def _(message: Message = CommandArg(), user: User = Depends(GetUserAndAuth)):
     args = message.extract_plain_text().lower()
     match = re.search(LEVEL_PATTERN, args)
     if not match:
@@ -106,8 +116,7 @@ async def _(message: Message = CommandArg(), user: User = Depends(get_user_db)):
     plan = match.group(2)
     category_ = match.group(3)
     page = match.group(4) or 1
-    username = match.group(5)
-    
+
     if level not in LEVEL_LIST:
         await level_process.finish("无此等级")
     if plan.lower() not in RANK_PLUS + COMBO_PLUS + SYNC_PLUS:
@@ -124,13 +133,13 @@ async def _(message: Message = CommandArg(), user: User = Depends(get_user_db)):
             await level_process.finish(f"无法指定查询「{category_}」")
     else:
         category = Category.DEFAULT
-    
+
     data = await draw_level_progress(user, level, plan, category, int(page))
     await level_process.send(data)
 
 
 @level_score_list.handle()
-async def _(message: Message = CommandArg(), user: User = Depends(get_user_db)):
+async def _(message: Message = CommandArg(), user: User = Depends(GetUserAndAuth)):
     args = message.extract_plain_text().lower()
     match = re.search(LEVEL_LIST_PATTERN, args)
     if not match:

@@ -17,7 +17,6 @@ async def get_music_data() -> Songs:
 async def get_music_aliases() -> Aliases:
     api = LxnsAPI()
     try:
-        raise Exception
         data = await api.music_alias_data()
         await writefile(lxns_alias_file, data.model_dump())
     except Exception:

@@ -3,16 +3,18 @@ from pathlib import Path
 import nonebot
 from nonebot.plugin import PluginMetadata, require
 
-from .commands import *
-from .config import BaseConfig, dfconfig, driver, log, maiconfig
-from .core.database.qq import create_database as qq_create
-from .core.image.update_table import UpdateTable
+from . import commands as commands
+from . import web as web
+from .config import BaseConfig, dfconfig, driver, log, lxnsconfig, maiconfig
+from .core.clients.divingfish.client import DivingFishAPI
+from .core.database.qq import create_database
+from .core.image import AssetsImage
 from .core.service import mai
-from .web import *
+from .resources import plate_table_dir, rating_table_dir
 
 scheduler = require("nonebot_plugin_apscheduler")
 
-from nonebot_plugin_apscheduler import scheduler
+from nonebot_plugin_apscheduler import scheduler  # noqa: E402, F811
 
 __plugin_meta__ = PluginMetadata(
     name="nonebot-plugin-qq-maimaidx",
@@ -21,7 +23,7 @@ __plugin_meta__ = PluginMetadata(
     type="application",
     config=BaseConfig,
     homepage="https://github.com/Yuri-YuzuChaN/nonebot-plugin-qq-maimaidx",
-    supported_adapters={"~qq"}
+    supported_adapters={"~qq"},
 )
 
 
@@ -35,18 +37,48 @@ async def get_music():
     """
     bot启动时开始获取所有数据
     """
-    await qq_create()
+    await create_database()
     if dfconfig.divingfish_prober_proxy:
         log.info("使用代理服务器访问「水鱼」查分器")
+        DivingFishAPI.set_proxy()
     if maiconfig.maimaidx_alias_proxy:
         log.info("使用代理服务器访问「柚子」别名服务器")
+
     log.info("正在获取maimai曲目数据")
     await mai.get_music()
     log.info("正在获取maimai曲目别名数据")
     await mai.get_music_alias()
     log.info("正在获取maimai牌子数据")
     await mai.get_plate_json()
+    log.success("猜歌数据初始化完成")
     log.success("maimai数据获取完成")
+
+    if dfconfig.divingfish_token is None:
+        log.opt(colors=True).warning(
+            "<r>未配置水鱼查分器开发者Token，查分模块只能使用「b50」指令</r>"
+        )
+    if lxnsconfig.lxns_dev_token is None:
+        log.opt(colors=True).warning(
+            "<r>未配置落雪查分器开发者Token，无法使用落雪数据源</r>"
+        )
+
+    if maiconfig.save_in_memory:
+        AssetsImage._load_image()
+        log.success("已将图片保存在内存中")
+
+    if not list(rating_table_dir.iterdir()):
+        log.opt(colors=True).warning(
+            "<y>注意！注意！</y>检测到定数表文件夹为空！"
+            "可能导致「定数表」「完成表」指令无法使用，"
+            "请及时私聊BOT使用指令「更新定数表」进行生成。"
+        )
+
+    if not list(plate_table_dir.iterdir()):
+        log.opt(colors=True).warning(
+            "<y>注意！注意！</y>检测到牌子文件夹为空！"
+            "可能导致「完成表」指令无法使用，"
+            "请及时私聊BOT使用指令「更新完成表」进行生成。"
+        )
 
 
 scheduler.add_job(mai.update, "cron", hour=4)

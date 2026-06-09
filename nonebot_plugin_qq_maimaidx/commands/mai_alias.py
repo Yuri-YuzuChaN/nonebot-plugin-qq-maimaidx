@@ -15,12 +15,15 @@ async def _(message: Message = CommandArg()):
     match = re.search(r"^(id)?\s?(.+)", args, re.IGNORECASE)
     if not match:
         await alias_song.finish("指令错误，请重新输入")
-    isid = match.group(1)
+    findid = bool(match.group(1))
     name = match.group(2)
-    if isid and name.isdigit():
+    aliases = None
+    if findid and name.isdigit():
         alias_id = mai.total_alias_list.by_id(name)
         if not alias_id:
-            await alias_song.finish("未找到此歌曲")
+            await alias_song.finish(
+                "未找到此歌曲\n可以使用「添加别名」指令给该乐曲添加别名"
+            )
         else:
             aliases = alias_id
     else:
@@ -29,17 +32,23 @@ async def _(message: Message = CommandArg()):
             if name.isdigit():
                 alias_id = mai.total_alias_list.by_id(name)
                 if not alias_id:
-                    await alias_song.finish("未找到此歌曲")
+                    await alias_song.finish(
+                        "未找到此歌曲\n可以使用「添加别名」指令给该乐曲添加别名"
+                    )
                 else:
                     aliases = alias_id
             else:
-                await alias_song.finish("未找到此歌曲")
+                await alias_song.finish(
+                    "未找到此歌曲\n可以使用「添加别名」指令给该乐曲添加别名"
+                )
     if len(aliases) != 1:
         msg = []
         for songs in aliases:
             alias_list = "\n".join(songs.alias)
             msg.append(f"ID：{songs.song_id}\n{alias_list}")
-        await alias_song.finish(f"找到{len(aliases)}个相同别名的曲目：\n" + "\n======\n".join(msg))
+        await alias_song.finish(
+            f"找到{len(aliases)}个相同别名的曲目：\n" + "\n======\n".join(msg),
+        )
 
     if len(aliases[0].alias) == 1:
         await alias_song.finish("该曲目没有别名")
