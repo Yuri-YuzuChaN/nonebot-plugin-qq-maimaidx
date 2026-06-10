@@ -16,7 +16,7 @@ async def _(message: Message = CommandArg()):
     if not match:
         await alias_song.finish("指令错误，请重新输入")
     findid = bool(match.group(1))
-    name = match.group(2)
+    name = match.group(2).lower()
     aliases = None
     if findid and name.isdigit():
         alias_id = mai.total_alias_list.by_id(name)
