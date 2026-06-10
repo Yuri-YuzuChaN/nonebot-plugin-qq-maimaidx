@@ -36,8 +36,8 @@ CATEGORY_ALIAS = {
 rating_table = on_command("定数表")
 rating_table_pfm = on_command("完成表")
 plate_table_condition = on_command("牌子条件")
-plate_process = on_command("牌子进度")
-level_process = on_command("等级进度")
+plate_progress = on_command("牌子进度")
+level_progress = on_command("等级进度")
 level_score_list = on_command("分数列表")
 
 
@@ -90,52 +90,52 @@ async def _():
     )
 
 
-@plate_process.handle()
+@plate_progress.handle()
 async def _(message: Message = CommandArg(), user: User = Depends(GetUserAndAuth)):
-    username = None
     args = message.extract_plain_text().lower()
     match = re.search(TABLE_PATTERN, args)
     if not match:
-        await plate_process.finish("输入错误，请重新确定牌子")
+        await plate_progress.finish("输入错误，请重新确定牌子")
     ver = match.group(1)
     plan = match.group(2)
+    page = match.group(3) or 1
     if f"{ver}{plan}" == "真将":
-        await plate_process.finish("真系没有真将哦")
+        await plate_progress.finish("真系没有真将哦")
 
-    data = await draw_plate_progress(user, username, ver, plan)
-    await plate_process.send(data)
+    data = await draw_plate_progress(user, ver, plan, page)
+    await plate_progress.send(data)
 
 
-@level_process.handle()
+@level_progress.handle()
 async def _(message: Message = CommandArg(), user: User = Depends(GetUserAndAuth)):
     args = message.extract_plain_text().lower()
     match = re.search(LEVEL_PATTERN, args)
     if not match:
-        await level_process.finish("输入错误，请重新输入难度等级")
+        await level_progress.finish("输入错误，请重新输入难度等级")
     level = match.group(1)
-    plan = match.group(2)
+    plan = match.group(2).lower()
     category_ = match.group(3)
     page = match.group(4) or 1
 
     if level not in LEVEL_LIST:
-        await level_process.finish("无此等级")
+        await level_progress.finish("无此等级")
     if plan.lower() not in RANK_PLUS + COMBO_PLUS + SYNC_PLUS:
-        await level_process.finish("无此评价等级")
+        await level_progress.finish("无此评价等级")
     if LEVEL_LIST.index(level) < 11 or (
         plan.lower() in RANK_PLUS and RANK_PLUS.index(plan.lower()) < 8
     ):
-        await level_process.finish("兄啊，有点志向好不好")
+        await level_progress.finish("兄啊，有点志向好不好")
     if category_:
         target_category = CATEGORY_ALIAS.get(category_)
         if target_category:
             category = target_category
         else:
-            await level_process.finish(f"无法指定查询「{category_}」")
+            await level_progress.finish(f"无法指定查询「{category_}」。")
     else:
         category = Category.DEFAULT
 
     data = await draw_level_progress(user, level, plan, category, int(page))
-    await level_process.send(data)
+    await level_progress.send(data)
 
 
 @level_score_list.handle()
@@ -146,7 +146,6 @@ async def _(message: Message = CommandArg(), user: User = Depends(GetUserAndAuth
         await level_score_list.finish("输入错误，请重新输入指定等级")
     rating = match.group(1)
     page = match.group(2) or 1
-    username = match.group(3)
     try:
         if "." in rating:
             rating = round(float(rating), 1)
@@ -156,5 +155,5 @@ async def _(message: Message = CommandArg(), user: User = Depends(GetUserAndAuth
         if rating not in LEVEL_LIST:
             await level_score_list.finish("无此等级")
 
-    result = await draw_level_score_list(user, rating, int(page), username)
+    result = await draw_level_score_list(user, rating, int(page))
     await level_score_list.finish(result)
