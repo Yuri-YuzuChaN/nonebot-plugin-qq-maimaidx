@@ -24,7 +24,7 @@ TABLE_PATTERN = (
 )
 RATING_PATTERN = r"^([0-9]+\+?)((s+|ap|fc|fs|fdx)\+?)?\s?"
 LEVEL_PATTERN = r"^([0-9]+\+?)\s?((a+|b+|c|d|s+|ap|fc|fs|fdx)\+?)\s?([\u4e00-\u9fa5]+)?\s?([0-9]+)?$"
-LEVEL_LIST_PATTERN = r"([0-9]+\.?[0-9]?\+?)\s?([0-9]+)?$"
+LEVEL_LIST_PATTERN = r"^([0-9]+(?:\.[0-9]+)?\+?)\s?([0-9]+)?$"
 CATEGORY_ALIAS = {
     "已完成": Category.COMPLETED,
     "未完成": Category.UNFINISHED,
@@ -65,6 +65,10 @@ async def _(message: Message = CommandArg(), user: User = Depends(GetUserAndAuth
         if args in LEVEL_LIST[:6]:
             result = "只支持查询lv7-15的完成表"
         elif ra in LEVEL_LIST[6:]:
+            if plan and plan.lower() not in COMBO_PLUS:
+                await rating_table_pfm.finish(
+                    "完成表目前仅支持「fc」「ap」计划，例如「13fc完成表」「13ap完成表」。",
+                )
             result = await draw_rating_table(
                 user, ra, True if plan and plan.lower() in COMBO_PLUS else False
             )
@@ -146,14 +150,13 @@ async def _(message: Message = CommandArg(), user: User = Depends(GetUserAndAuth
         await level_score_list.finish("输入错误，请重新输入指定等级")
     rating = match.group(1)
     page = match.group(2) or 1
-    try:
-        if "." in rating:
-            rating = round(float(rating), 1)
-        elif rating not in LEVEL_LIST:
-            await level_score_list.finish("无此等级")
-    except ValueError:
-        if rating not in LEVEL_LIST:
-            await level_score_list.finish("无此等级")
+    if "." in rating:
+        # 定数仅有一位小数，多位小数视为输入有误
+        if not re.fullmatch(r"[0-9]+\.[0-9]", rating):
+            await level_score_list.finish("输入有误，定数仅有一位小数。")
+        rating = round(float(rating), 1)
+    elif rating not in LEVEL_LIST:
+        await level_score_list.finish("无此等级")
 
     result = await draw_level_score_list(user, rating, int(page))
     await level_score_list.finish(result)

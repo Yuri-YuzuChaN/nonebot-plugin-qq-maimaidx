@@ -200,7 +200,7 @@ async def _(
     match = re.search(r"^((?:dx|sd|标准))?([绿黄红紫白]?)([0-9]+\+?)$", args)
     if not match:
         await random_song.finish("参数错误，请重新发送随机谱面")
-    diff = match.group(1)
+    diff = (match.group(1) or "").lower()
     if diff == "dx":
         type_ = ["DX"]
     elif diff == "sd" or diff == "标准":
@@ -208,10 +208,15 @@ async def _(
     else:
         type_ = ["SD", "DX"]
     level = match.group(3)
-    if match.group(2) == "":
-        songs = mai.total_list.filter(level=level, type=type_)
-    else:
-        songs = mai.total_list.filter(level=level, type=type_)
+    color = match.group(2)
+    songs = mai.total_list.filter(level=level, type=type_)
+    if color:
+        ci = "绿黄红紫白".index(color)
+        songs = [
+            s
+            for s in songs
+            if len(s.difficulties) > ci and s.difficulties[ci].level == level
+        ]
     if len(songs) == 0:
         result = "没有这样的乐曲哦。"
     else:

@@ -69,6 +69,8 @@ async def _(
         else:
             song_id = aliases[0].song_id
     song = mai.total_list.by_id(int(song_id))
+    if song is None:
+        await info.finish("未找到曲目")
 
     result = await draw_play_data(user, song)
     await matcher.send(result)
@@ -106,9 +108,10 @@ async def _(message: Message = CommandArg()):
     song = mai.total_list.by_id(id)
     stats = song.difficulties[level_index].stats
 
-    if len(song.difficulties) == 4 and level_index == 4:
+    if level_index >= len(song.difficulties):
         await ginfo.finish("该乐曲没有这个等级")
-    if not song.difficulties[level_index]:
+    stats = song.difficulties[level_index].stats
+    if stats is None:
         await ginfo.finish("该等级没有统计信息")
 
     data = await draw_song_galobal_data(song, level_index) + dedent(f"""\
@@ -149,6 +152,8 @@ async def _(message: Message = CommandArg()):
             chart_id = int(result.group(2))
             line = float(args[-1])
             song = mai.total_list.by_id(chart_id)
+            if song is None or level_index >= len(song.difficulties):
+                raise ValueError
             chart = song.difficulties[level_index]
             tap = int(chart.notes.tap)
             slide = int(chart.notes.slide)
