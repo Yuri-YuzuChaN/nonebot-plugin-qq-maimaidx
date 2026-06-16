@@ -18,11 +18,11 @@ from ..core.merge.models import Category
 from ..resources import pic_dir
 from .depend import GetUserAndAuth
 
+RATING_PATTERN = r"^([0-9]+\+?)((s+|ap|fc|fs|fdx)\+?)?\s?"
 TABLE_PATTERN = (
     r"^([真超檄橙暁晓桃櫻樱紫菫堇白雪輝辉舞霸熊華华爽煌星宙祭祝双宴镜彩])"
     r"([極极将舞神者]舞?)\s?([12]+)?$"
 )
-RATING_PATTERN = r"^([0-9]+\+?)((s+|ap|fc|fs|fdx)\+?)?\s?"
 LEVEL_PATTERN = r"^([0-9]+\+?)\s?((a+|b+|c|d|s+|ap|fc|fs|fdx)\+?)\s?([\u4e00-\u9fa5]+)?\s?([0-9]+)?$"
 LEVEL_LIST_PATTERN = r"^([0-9]+(?:\.[0-9]+)?\+?)\s?([0-9]+)?$"
 CATEGORY_ALIAS = {
@@ -106,7 +106,7 @@ async def _(message: Message = CommandArg(), user: User = Depends(GetUserAndAuth
     if f"{ver}{plan}" == "真将":
         await plate_progress.finish("真系没有真将哦")
 
-    data = await draw_plate_progress(user, ver, plan, page)
+    data = await draw_plate_progress(user, ver, plan, int(page))
     await plate_progress.send(data)
 
 
