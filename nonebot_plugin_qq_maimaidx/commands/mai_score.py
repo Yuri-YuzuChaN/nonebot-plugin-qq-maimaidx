@@ -3,8 +3,6 @@ from textwrap import dedent
 
 from nonebot import on_command
 from nonebot.adapters.qq import (
-    AtMessageCreateEvent,
-    GroupAtMessageCreateEvent,
     Message,
     MessageSegment,
 )
@@ -28,16 +26,12 @@ score = on_command("分数线")
 @best50.handle()
 async def _(
     matcher: Matcher,
-    event: AtMessageCreateEvent | GroupAtMessageCreateEvent,
     message: Message = CommandArg(),
     user: User = Depends(GetUserAndAuth),
 ):
     try:
         username = message.extract_plain_text().strip()
-        icon = None
-        if isinstance(event, AtMessageCreateEvent) and not username:
-            icon = event.author.avatar
-        result = await draw_best50(user, username=username, icon=icon)
+        result = await draw_best50(user, username=username)
     except UserNotBindError as e:
         result = str(e)
     await matcher.send(result)

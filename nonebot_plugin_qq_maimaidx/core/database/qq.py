@@ -74,7 +74,7 @@ async def update_user(
         if user := result.first():
             user.sqlmodel_update(update_data)
         else:
-            user = User(user_id=user_id)
+            user = User(user_id=user_id, **update_data)
             session.add(user)
         await session.commit()
         await session.refresh(user)

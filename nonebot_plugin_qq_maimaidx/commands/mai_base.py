@@ -7,6 +7,7 @@ from nonebot.adapters.qq import (
     AtMessageCreateEvent,
     DirectMessageCreateEvent,
     GroupAtMessageCreateEvent,
+    GroupMessageCreateEvent,
     Message,
     MessageSegment,
 )
@@ -84,7 +85,10 @@ async def _():
 
 
 @bind.handle()
-async def _(event: GroupAtMessageCreateEvent, message: Message = CommandArg()):
+async def _(
+    event: GroupAtMessageCreateEvent | GroupMessageCreateEvent,
+    message: Message = CommandArg(),
+):
     qqid = message.extract_plain_text().strip()
     user_id = event.author.member_openid
     try:
@@ -99,7 +103,7 @@ async def _(event: GroupAtMessageCreateEvent, message: Message = CommandArg()):
 
 
 @bindlx.handle()
-async def _(event: GroupAtMessageCreateEvent):
+async def _():
     await bindlx.send(AUTHORIZE_MSG)
 
 

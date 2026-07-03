@@ -4,6 +4,7 @@ from nonebot.adapters.qq import (
     AtMessageCreateEvent,
     DirectMessageCreateEvent,
     GroupAtMessageCreateEvent,
+    GroupMessageCreateEvent,
     Message,
 )
 from nonebot.matcher import Matcher
@@ -44,6 +45,7 @@ class GetUserModel:
         self,
         matcher: Matcher,
         event: GroupAtMessageCreateEvent
+        | GroupMessageCreateEvent
         | AtMessageCreateEvent
         | DirectMessageCreateEvent,
     ) -> User | None:
