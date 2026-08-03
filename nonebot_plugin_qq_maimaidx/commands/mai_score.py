@@ -1,7 +1,6 @@
 import re
 from textwrap import dedent
 
-from nonebot import on_command
 from nonebot.adapters.qq import (
     Message,
     MessageSegment,
@@ -14,16 +13,20 @@ from ..core.clients.exceptions import UserNotBindError
 from ..core.database.qq import User
 from ..core.handler import draw_best50, draw_play_data, draw_song_galobal_data
 from ..core.image.tools import text_to_bytes_io
+from ..core.merge.models.enum import ServiceName
 from ..core.service import mai
 from .depend import GetUserAndAuth
+from .router import on_command
 
 best50 = on_command("b50")
+ap50 = on_command("ap50")
 info = on_command("info")
 ginfo = on_command("ginfo")
 score = on_command("分数线")
 
 
 @best50.handle()
+@ap50.handle()
 async def _(
     matcher: Matcher,
     message: Message = CommandArg(),
@@ -31,21 +34,24 @@ async def _(
 ):
     try:
         username = message.extract_plain_text().strip()
-        result = await draw_best50(user, username=username)
+        if (
+            is_ap := isinstance(matcher, ap50)
+        ) and user.service == ServiceName.DIVINGFISH:
+            await matcher.finish("仅落雪查分器支持AP50指令", reply_message=True)
+        result = await draw_best50(user, username=username, all_perfect=is_ap)
     except UserNotBindError as e:
         result = str(e)
-    await matcher.send(result)
+    await matcher.send(result, reply_message=True)
 
 
 @info.handle()
 async def _(
-    matcher: Matcher,
     message: Message = CommandArg(),
     user: User = Depends(GetUserAndAuth),
 ):
     data = message.extract_plain_text().strip()
     if not data:
-        await matcher.finish("请输入曲目id或曲名")
+        await info.finish("请输入曲目id或曲名", reply_message=True)
 
     if data.isdigit() and mai.total_list.by_id(int(data)):
         song_id = data
@@ -54,27 +60,27 @@ async def _(
     else:
         aliases = mai.total_alias_list.by_alias(data)
         if not aliases:
-            await matcher.finish("未找到曲目")
+            await info.finish("未找到曲目", reply_message=True)
         elif len(aliases) != 1:
             msg = "找到相同别名的曲目，请使用以下ID查询：\n"
             for alias in aliases:
                 msg += f"{alias.song_id}：{alias.alias[0]}\n"
-            await matcher.finish(msg.strip())
+            await info.finish(msg.strip(), reply_message=True)
         else:
             song_id = aliases[0].song_id
     song = mai.total_list.by_id(int(song_id))
     if song is None:
-        await info.finish("未找到曲目")
+        await info.finish("未找到曲目", reply_message=True)
 
     result = await draw_play_data(user, song)
-    await matcher.send(result)
+    await info.send(result, reply_message=True)
 
 
 @ginfo.handle()
 async def _(message: Message = CommandArg()):
     args = message.extract_plain_text().strip()
     if not args:
-        await ginfo.finish("请输入曲目id或曲名")
+        await ginfo.finish("请输入曲目id或曲名", reply_message=True)
 
     if args[0] not in "绿黄红紫白":
         level_index = 3
@@ -82,7 +88,7 @@ async def _(message: Message = CommandArg()):
         level_index = "绿黄红紫白".index(args[0])
         args = args[1:].strip()
         if not args:
-            await ginfo.finish("请输入曲目id或曲名")
+            await ginfo.finish("请输入曲目id或曲名", reply_message=True)
     if mai.total_list.by_id(args):
         id = args
     elif by_t := mai.total_list.by_name(args):
@@ -90,12 +96,12 @@ async def _(message: Message = CommandArg()):
     else:
         alias = mai.total_alias_list.by_alias(args)
         if not alias:
-            await ginfo.finish("未找到曲目")
+            await ginfo.finish("未找到曲目", reply_message=True)
         elif len(alias) != 1:
             msg = "找到相同别名的曲目，请使用以下ID查询：\n"
             for songs in alias:
                 msg += f"{songs.song_id}：{songs.alias[0]}\n"
-            await ginfo.finish(msg.strip())
+            await ginfo.finish(msg.strip(), reply_message=True)
         else:
             id = str(alias[0].song_id)
 
@@ -103,10 +109,10 @@ async def _(message: Message = CommandArg()):
     stats = song.difficulties[level_index].stats
 
     if level_index >= len(song.difficulties):
-        await ginfo.finish("该乐曲没有这个等级")
+        await ginfo.finish("该乐曲没有这个等级", reply_message=True)
     stats = song.difficulties[level_index].stats
     if stats is None:
-        await ginfo.finish("该等级没有统计信息")
+        await ginfo.finish("该等级没有统计信息", reply_message=True)
 
     data = await draw_song_galobal_data(song, level_index) + dedent(f"""\
         游玩次数：{round(stats.cnt)}
@@ -114,7 +120,7 @@ async def _(message: Message = CommandArg()):
         平均达成率：{stats.avg:.2f}%
         平均 DX 分数：{stats.avg_dx:.1f}
         谱面成绩标准差：{stats.std_dev:.2f}""")
-    await ginfo.send(data)
+    await ginfo.send(data, reply_message=True)
 
 
 @score.handle()
@@ -136,7 +142,9 @@ async def _(message: Message = CommandArg()):
             TOUCH       1 / 2.5  / 5
             BREAK       5 / 12.5 / 25 (外加200落)
         """).strip()
-        await score.finish(MessageSegment.image(text_to_bytes_io(msg)))
+        await score.finish(
+            MessageSegment.image(text_to_bytes_io(msg)), reply_message=True
+        )
     else:
         try:
             result = re.search(r"([绿黄红紫白])\s?([0-9]+)", _args)
@@ -170,7 +178,9 @@ async def _(message: Message = CommandArg()):
                 f"等价于「{(break_50_reduce / 100):.3f}」个「TAP」"
                 f"「GREAT」(-{break_50_reduce / total_score * 100:.4f}%)"
             )
-            await score.finish(msg)
+            await score.finish(msg, reply_message=True)
         except (AttributeError, ValueError) as e:
             log.exception(e)
-            await score.finish("格式错误，输入“分数线 帮助”以查看帮助信息")
+            await score.finish(
+                "格式错误，输入“分数线 帮助”以查看帮助信息", reply_message=True
+            )

@@ -7,8 +7,10 @@ from nonebot.adapters.qq import (
     GroupMessageCreateEvent,
     Message,
 )
+from nonebot.consts import CMD_ARG_KEY, PREFIX_KEY, REGEX_MATCHED
 from nonebot.matcher import Matcher
-from nonebot.params import CommandArg
+from nonebot.params import Depends
+from nonebot.typing import T_State
 
 from ..config import maiconfig
 from ..core.clients.exceptions import UserNotBindError
@@ -20,6 +22,36 @@ AUTHORIZE_ERROR = (
     f"您尚未授权「{maiconfig.bot_name} BOT」"
     "访问您的落雪查分器数据，请先使用「/绑定落雪」指令进行绑定。"
 )
+
+
+class UniCommand:
+    def __init__(self, *, regex_group: int | str | tuple[int | str, ...] = 1):
+        """
+        获取命令参数或正则匹配内容
+
+        Params:
+            `regex_group`: 正则触发时返回的捕获组，默认为第 1 组；传入元组时
+                会用空格拼接多个非空捕获组
+        """
+        self.regex_group = regex_group
+
+    def __call__(self, state: T_State) -> str:
+        match: re.Match[str] | None = state.get(REGEX_MATCHED)
+        if match:
+            if isinstance(self.regex_group, tuple):
+                return " ".join(
+                    value.strip()
+                    for group in self.regex_group
+                    if (value := match.group(group)) is not None and value.strip()
+                )
+            value = match.group(self.regex_group)
+            return value.strip() if value is not None else ""
+
+        message: Message | None = state.get(PREFIX_KEY, {}).get(CMD_ARG_KEY)
+        if message is not None:
+            return message.extract_plain_text().strip()
+
+        return ""
 
 
 class GetUserModel:
@@ -72,11 +104,13 @@ class GetUserModel:
             ):
                 if self.check_skip:
                     return None
-                await matcher.finish(AUTHORIZE_ERROR)
+                await matcher.finish(AUTHORIZE_ERROR, reply_message=True)
             if user.service == ServiceName.DIVINGFISH and qq_is_none:
                 if self.check_skip:
                     return None
-                await matcher.finish("请先使用「/绑定」指令绑定QQ。")
+                await matcher.finish(
+                    "请先使用「/绑定」指令绑定QQ。", reply_message=True
+                )
 
             is_exist = True
 
@@ -106,7 +140,8 @@ def is_float(value: str) -> bool:
 
 
 async def process_regex(
-    matcher: Matcher, message: Message = CommandArg()
+    matcher: Matcher,
+    raw_args: str = Depends(UniCommand(regex_group=(1, 2))),
 ) -> tuple[list[Song], int]:
     """
     查歌指令依赖注入函数，返回曲目列表以及页数
@@ -114,9 +149,9 @@ async def process_regex(
     Returns:
         `tuple[list[Song], int]`
     """
-    match = re.search(
-        r"^(定数|bpm|曲师|谱师)?\s?(.+)", message.extract_plain_text(), re.IGNORECASE
-    )
+    match = re.search(r"^(定数|bpm|曲师|谱师)?\s?(.+)", raw_args, re.IGNORECASE)
+    if not match:
+        await matcher.finish("请输入要查询的乐曲信息", reply_message=True)
     raw_cmd = match.group(1)
     cmd = raw_cmd.lower() if raw_cmd is not None else None
     args = match.group(2)
@@ -151,6 +186,7 @@ async def process_regex(
                             "定数查歌「定数」「页数」\n"
                             "定数查歌「最小定数」「最大定数」「页数」\n"
                         ),
+                        reply_message=True,
                     )
             result = mai.total_list.filter(level_value=(ds1, ds2))
         case "bpm":
@@ -175,6 +211,7 @@ async def process_regex(
                             "bpm查歌「bpm」「页数」\n"
                             "bpm查歌「最小bpm」「最大bpm」「页数」\n"
                         ),
+                        reply_message=True,
                     )
         case "曲师" | "谱师":
             if not a_list:
@@ -194,6 +231,6 @@ async def process_regex(
             else:
                 result = mai.total_list.filter(charter=name, all_diff=False)
         case _:
-            await matcher.finish("指令错误")
+            await matcher.finish("指令错误", reply_message=True)
 
     return result, page

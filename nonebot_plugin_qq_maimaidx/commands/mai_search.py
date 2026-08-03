@@ -1,37 +1,45 @@
 import re
 
-from nonebot import on_command
-from nonebot.adapters.qq import Message, MessageSegment
-from nonebot.exception import FinishedException
-from nonebot.params import CommandArg, Depends
+from nonebot.adapters.qq import MessageSegment
+from nonebot.matcher import Matcher
+from nonebot.params import Depends
 
 from ..core.clients.yuzuchan.client import YuzuChaNAPI
-from ..core.clients.yuzuchan.models import StatusEnum
+from ..core.clients.yuzuchan.models import AliasStatus, Songs, StatusEnum
 from ..core.database.qq import User
 from ..core.handler import draw_chart_info, draw_song_list
 from ..core.merge.alias import yuzu_alias_to_alias
 from ..core.merge.models import Song
 from ..core.service import mai
-from .depend import GetUserAndAuthOrNone, process_regex
+from .depend import GetUserAndAuthOrNone, UniCommand, process_regex
+from .router import on_command, on_regex
 
 search = on_command("查歌")
+search_regex = on_regex(r"^(定数|bpm|曲师|谱师)?查歌\s?(.+)", re.IGNORECASE)
 search_alias_song = on_command("别名查歌")
+search_alias_song_regex = on_regex(
+    r"(.+)是(?:什么|啥)歌[？?]?([0-9]+)?$", re.IGNORECASE
+)
 query_chart = on_command("id")
+query_chart_regex = on_regex(r"^id\s?([0-9]+)$", re.IGNORECASE)
 
 
 @search.handle()
+@search_regex.handle()
 async def _(
+    matcher: Matcher,
     result: tuple[list[Song], int] = Depends(process_regex),
     user: User | None = Depends(GetUserAndAuthOrNone),
 ):
     songs, page = result
     if not songs:
-        await search.finish(
+        await matcher.finish(
             (
                 "没有找到这样的乐曲。\n"
                 "※ 指令：/查歌 「定数|bpm|曲师|谱师」「内容」\n"
                 "※ 指令：/查歌 「标题内容」"
-            )
+            ),
+            reply_message=True,
         )
 
     if len(songs) == 1:
@@ -43,28 +51,26 @@ async def _(
         image = MessageSegment.text(r)
     else:
         image = draw_song_list(songs, page)
-    await search.send(image)
+    await matcher.send(image, reply_message=True)
 
 
 @search_alias_song.handle()
+@search_alias_song_regex.handle()
 async def _(
-    message: Message = CommandArg(), user: User | None = Depends(GetUserAndAuthOrNone)
+    matcher: Matcher,
+    args: str = Depends(UniCommand(regex_group=(1, 2))),
+    user: User | None = Depends(GetUserAndAuthOrNone),
 ):
-    args = message.extract_plain_text().strip().split()
-    if len(args) == 0:
-        await search_alias_song.finish("请输入要查询的别名")
-    name = ""
+    parts = args.split()
+    if not parts:
+        await matcher.finish("请输入要查询的别名", reply_message=True)
+
     page = 1
-    if len(args) == 1:
-        name = args[0]
-    elif len(args) == 2:
-        name = args[0]
-        if args[1].isdigit():
-            page = int(args[1])
-        else:
-            await search_alias_song.finish("参数错误，页码必须为数字")
+    if len(parts) >= 2 and parts[-1].isdigit():
+        name = " ".join(parts[:-1])
+        page = int(parts[-1])
     else:
-        await search_alias_song.finish("参数错误，指令格式：/别名查歌 别名")
+        name = " ".join(parts)
 
     error_msg = f"未找到别名为「{name}」的歌曲"
     # 别名
@@ -73,45 +79,50 @@ async def _(
         try:
             api = YuzuChaNAPI()
             obj = await api.get_songs(name)
-            if obj.type == StatusEnum.ONGOING:
-                msg = f"未找到别名为「{name}」的歌曲，但找到与此相同别名的投票：\n"
-                for _s in obj.data:
-                    msg += f"- {_s.tag}\n    ID {_s.song_id}: {_s.name}\n"
-                msg += "※ 可以使用指令「同意别名 XXXXX」进行投票"
-                await search_alias_song.finish(msg.strip())
-            else:
-                alias_data = yuzu_alias_to_alias(obj.data)
-        except FinishedException:
-            raise
         except Exception:
-            pass
+            obj = None
+        if (
+            isinstance(obj, Songs)
+            and obj.type == StatusEnum.ONGOING
+            and obj.data
+            and isinstance(obj.data[0], AliasStatus)
+        ):
+            msg = f"未找到别名为「{name}」的歌曲，但找到与此相同别名的投票：\n"
+            for _s in obj.data:
+                msg += f"- {_s.tag}\n    ID {_s.song_id}: {_s.name}\n"
+            msg += "※ 可以使用指令「同意别名 XXXXX」进行投票"
+            await matcher.finish(msg.strip(), reply_message=True)
+        elif isinstance(obj, Songs):
+            alias_data = yuzu_alias_to_alias(obj.data)
 
     if alias_data:
         if len(alias_data) != 1:
             msg = f"找到{len(alias_data)}个相同别名的曲目：\n"
-            for songs in alias_data:
-                msg += f"{songs.song_id}：{songs.alias[0]}\n"
+            for song in alias_data:
+                msg += f"{song.song_id}：{song.song_name}\n"
             msg += "※ 请使用「/id xxxxx」查询指定曲目"
-            await search_alias_song.finish(msg.strip())
+            await matcher.finish(msg.strip(), reply_message=True)
         else:
             song = mai.total_list.by_id(alias_data[0].song_id)
             if song:
                 msg = "您要找的是不是：" + await draw_chart_info(song, user)
             else:
                 msg = error_msg
-            await search_alias_song.finish(msg)
+            await matcher.finish(msg, reply_message=True)
 
     # id
     if name.isdigit() and (song := mai.total_list.by_id(int(name))):
-        await search_alias_song.finish(
-            "您要找的是不是：" + await draw_chart_info(song, user)
+        await matcher.finish(
+            "您要找的是不是：" + await draw_chart_info(song, user), reply_message=True
         )
     if search_id := re.search(r"^id([0-9]+)$", name, re.IGNORECASE):
         song = mai.total_list.by_id(int(search_id.group(1)))
         if not song:
-            await search_alias_song.finish(f"未找到ID「{search_id.group(1)}」的乐曲")
-        await search_alias_song.finish(
-            "您要找的是不是：" + await draw_chart_info(song, user)
+            await matcher.finish(
+                f"未找到ID「{search_id.group(1)}」的乐曲", reply_message=True
+            )
+        await matcher.finish(
+            "您要找的是不是：" + await draw_chart_info(song, user), reply_message=True
         )
 
     # 标题
@@ -132,22 +143,23 @@ async def _(
         msg = (
             f"未找到别名为「{name}」的歌曲，但找到「{len(result)}」个相似标题的曲目：\n"
         )
-        msg += await draw_song_list(result, page)
-    await search_alias_song.finish(msg)
+        msg += draw_song_list(result, page)
+    await matcher.finish(msg, reply_message=True)
 
 
 @query_chart.handle()
+@query_chart_regex.handle()
 async def _(
-    message: Message = CommandArg(), user: User = Depends(GetUserAndAuthOrNone)
+    matcher: Matcher,
+    song_id: str = Depends(UniCommand()),
+    user: User | None = Depends(GetUserAndAuthOrNone),
 ):
+    if not song_id.isdigit():
+        await matcher.finish("请输入正确的曲目ID", reply_message=True)
 
-    _id = message.extract_plain_text().strip()
-    if not _id.isdigit():
-        await query_chart.finish("请输入正确的曲目ID")
-
-    song = mai.total_list.by_id(int(_id))
+    song = mai.total_list.by_id(int(song_id))
     if not song:
-        msg = f"未找到ID「{_id}」的乐曲"
+        msg = f"未找到ID「{song_id}」的乐曲"
     else:
         msg = await draw_chart_info(song, user)
-    await query_chart.finish(msg)
+    await matcher.finish(msg, reply_message=True)
